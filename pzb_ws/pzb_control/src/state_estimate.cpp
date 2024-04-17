@@ -38,7 +38,7 @@ public:
             [this](const std_msgs::msg::Float32 &msg){this->w1 = msg.data;});
         r_enc_sub_ = this->create_subscription<std_msgs::msg::Float32>(
             "/VelocityEncR", rclcpp::QoS(rclcpp::KeepLast(10)).best_effort().durability_volatile(),
-            [this](const std_msgs::msg::Float32 &msg){this->w2 = msg.data * 0.615;});
+            [this](const std_msgs::msg::Float32 &msg){this->w2 = msg.data * 0.62;});
 
         pose_pub_ = this->create_publisher<geometry_msgs::msg::Vector3>("/pzb_pose", 10);
         vel_pub_ = this->create_publisher<geometry_msgs::msg::Vector3>("/pzb_vel", 10);
@@ -86,7 +86,7 @@ private:
                 (r/2) * (this->w1 + this->w2) * sin(xi(2)),
                 (r/(2*l)) * (this->w2 - this->w1);
 
-        xi_dot(2) /= 0.8;
+        xi_dot(2) /= 0.75;
 
         // Integrate
         xi << xi + xi_dot * dt;

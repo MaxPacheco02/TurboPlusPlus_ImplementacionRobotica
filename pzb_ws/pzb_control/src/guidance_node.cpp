@@ -43,9 +43,9 @@ public:
         updateTimer =
             this->create_wall_timer(100ms, std::bind(&GuidanceNode::update, this));
 
-        wp_list.push_back(Waypoint{1,0});
-        wp_list.push_back(Waypoint{1,1});
-        wp_list.push_back(Waypoint{0,1});
+        wp_list.push_back(Waypoint{1.0,0});
+        wp_list.push_back(Waypoint{1.0,1.0});
+        wp_list.push_back(Waypoint{0,1.0});
         wp_list.push_back(Waypoint{0,0});
     }
 
@@ -64,7 +64,7 @@ private:
 
     double psi_d{0.0}, vel_d{0.0}, ang_vel_d{0.0};
 
-    const double change_wp_dist{0.01};
+    const double change_wp_dist{0.05};
     const double r{0.05}, l{0.08};
 
     int wp_i{0};
@@ -92,10 +92,10 @@ private:
             psi_d = std::atan2((wp_list[wp_i].y - this->pose.y), 
                 (wp_list[wp_i].x - this->pose.x));
 
-            vel_d = 0.05;
-            ang_vel_d = -get_angle_diff(this->pose.z, psi_d) * 0.5;
+            vel_d = 0.15;
+            ang_vel_d = -get_angle_diff(this->pose.z, psi_d) * 2;
 
-            if(std::fabs(ang_vel_d) > 0.4)
+            if(std::fabs(ang_vel_d) > 0.3)
                 vel_d = 0;
             
             if(wp_i == wp_list.size()) {
@@ -106,7 +106,7 @@ private:
             RCLCPP_INFO(get_logger(), "wp_i: %d, size: %d, vel: %f, ang_v: %f", wp_i, wp_list.size(), vel_d, ang_vel_d);
             RCLCPP_INFO(get_logger(), "From %f, %f to %f, %f", this->pose.x, this->pose.y, wp_list[wp_i].x, wp_list[wp_i].y);
             
-            this->w1_des_msg.data = 0.615 * (vel_d - ang_vel_d * l) / r;
+            this->w1_des_msg.data = 0.62 * (vel_d - ang_vel_d * l) / r;
             this->w2_des_msg.data = (vel_d + ang_vel_d * l) / r;
 
             this->cmd_vel_msg.linear.x = vel_d;

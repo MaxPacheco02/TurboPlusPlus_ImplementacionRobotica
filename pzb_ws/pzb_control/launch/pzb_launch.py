@@ -27,6 +27,10 @@ def generate_launch_description():
         package='pzb_control',
         executable='state_estimate',
         name='state_estimate',
+        remappings=[
+            ('/VelocityEncL', '/VelocitySetL'),
+            ('/VelocityEncR', '/VelocitySetR'),
+        ],
     )
 
     guidance_node = Node(

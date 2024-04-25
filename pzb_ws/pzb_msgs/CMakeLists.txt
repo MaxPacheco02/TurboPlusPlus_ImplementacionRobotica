@@ -13,10 +13,10 @@ find_package(rosidl_default_generators REQUIRED)
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
-rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/Prism.msg"
-  "msg/VoiceCommand.msg"
-  DEPENDENCIES geometry_msgs)
+# rosidl_generate_interfaces(${PROJECT_NAME}
+  # "msg/Prism.msg"
+  # "msg/VoiceCommand.msg"
+#   DEPENDENCIES geometry_msgs)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

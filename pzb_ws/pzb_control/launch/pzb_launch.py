@@ -15,6 +15,11 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     
     rviz_config = os.path.join(get_package_share_directory("pzb_control"),"rviz/","rviz.rviz")
+    pzb_config = os.path.join(
+        get_package_share_directory('pzb_control'),
+        'config',
+        'conf.yaml'
+    )
 
     rviz_node = Node(
         package='rviz2',
@@ -27,6 +32,10 @@ def generate_launch_description():
         package='pzb_control',
         executable='state_estimate',
         name='state_estimate',
+        parameters=[pzb_config],
+
+        # Comment remappings for closed loop
+        # Uncomment remappings for open loop
         remappings=[
             ('/VelocityEncL', '/VelocitySetL'),
             ('/VelocityEncR', '/VelocitySetR'),
@@ -37,14 +46,8 @@ def generate_launch_description():
         package='pzb_control',
         executable='guidance_node',
         name='guidance_node',
-
-        # Uncomment remappings if simulation
-        # remappings=[
-        #     ('/VelocitySetL','/VelocityEncL'),
-        #     ('/VelocitySetR','/VelocityEncR'),
-        # ],
+        parameters=[pzb_config],
     )
-
 
     return LaunchDescription([
         state_node,

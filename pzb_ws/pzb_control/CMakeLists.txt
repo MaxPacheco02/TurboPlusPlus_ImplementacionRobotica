@@ -10,6 +10,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
@@ -22,8 +23,8 @@ find_package(Eigen3 REQUIRED)
 
 install(DIRECTORY
   launch
-  scripts
   rviz
+  config
   DESTINATION share/${PROJECT_NAME})
 
 add_executable(state_estimate src/state_estimate.cpp)
@@ -32,6 +33,7 @@ ament_target_dependencies(
   geometry_msgs
   visualization_msgs
   std_msgs
+  std_srvs
   rclcpp
   sensor_msgs
   tf2
@@ -49,8 +51,10 @@ ament_target_dependencies(
   visualization_msgs
   std_msgs
   rclcpp
+  std_srvs
   sensor_msgs
   tf2
+  nav_msgs
   tf2_ros
   Eigen3
   tf2_geometry_msgs

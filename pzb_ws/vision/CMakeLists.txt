@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(pzb_msgs)
+project(vision)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -7,18 +7,26 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-find_package(geometry_msgs REQUIRED)
-find_package(rosidl_default_generators REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+# OpenCV
+find_package(OpenCV REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(sensor_msgs REQUIRED)
+# Custom messages
+find_package(pzb_msgs REQUIRED)
 
-rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/Prism.msg"
-  "msg/VoiceCommand.msg"
-  "msg/ObjectDetected.msg"
-  "msg/ObjectDetectedVector.msg"
-  DEPENDENCIES geometry_msgs)
+install(DIRECTORY
+  launch
+  config
+  DESTINATION share/${PROJECT_NAME})
+
+add_executable(color_detection src/color_detection.cpp)
+ament_target_dependencies(color_detection rclcpp std_msgs OpenCV sensor_msgs cv_bridge pzb_msgs)
+
+install(TARGETS
+    color_detection
+  DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

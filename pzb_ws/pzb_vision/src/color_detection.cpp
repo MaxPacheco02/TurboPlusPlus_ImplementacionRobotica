@@ -22,8 +22,8 @@ ColorDetection::ColorDetection():Node("color_detection"){
     publisher_image = this->create_publisher<sensor_msgs::msg::Image>("camera_frame", 10);
     publisher_objectedDetected = this->create_publisher<pzb_msgs::msg::ObjectDetectedVector>("object_detected_vector", 10);
 
-
     // Creating timers
+    sendFrame_timer = this->create_wall_timer(50ms, std::bind(&ColorDetection::sendingFrame_callback, this));
     colorDetection_timer = this->create_wall_timer(50ms, std::bind(&ColorDetection::colorDetection_callback, this));
     updateObjectsDetected_timer = this->create_wall_timer(25ms, std::bind(&ColorDetection::updateObjectsDetected_callback, this));
 

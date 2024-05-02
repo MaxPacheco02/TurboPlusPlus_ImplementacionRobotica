@@ -56,6 +56,7 @@ class ColorDetection : public rclcpp::Node
         // Timers
         rclcpp::TimerBase::SharedPtr colorDetection_timer;
         rclcpp::TimerBase::SharedPtr updateObjectsDetected_timer;
+        rclcpp::TimerBase::SharedPtr sendFrame_timer;
 
         // Publishers
         rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;

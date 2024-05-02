@@ -1,0 +1,5 @@
+color_detection:
+  ros__parameters:
+    red_values : [0, 10, 166, 255, 20, 255]
+    yellow_values : [25, 35, 17, 92, 74, 255]
+    green_values : [65, 90, 157, 255, 106, 255]

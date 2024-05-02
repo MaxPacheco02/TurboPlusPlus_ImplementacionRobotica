@@ -3,6 +3,7 @@
 #include <eigen3/Eigen/Dense>
 #include <cstdint>
 #include <iomanip>
+#include <queue>
 #include <iostream>
 #include <vector>
 
@@ -33,20 +34,42 @@ public:
     {
         using namespace std::placeholders;
 
+        this->declare_parameter("wheel_relation2", 0.0); // default wheel_relation2
+        wheel_relation2 = this->get_parameter("wheel_relation2").as_double();
+        this->declare_parameter("angle_ponder", 0.0); // default angle_ponder
+        angle_ponder = this->get_parameter("angle_ponder").as_double();
+
         l_enc_sub_ = this->create_subscription<std_msgs::msg::Float32>(
             "/VelocityEncL", rclcpp::QoS(rclcpp::KeepLast(10)).best_effort().durability_volatile(),
-            [this](const std_msgs::msg::Float32 &msg){this->w1 = msg.data;});
+            [this](const std_msgs::msg::Float32 &msg){
+                if(q1.size() <= q_length)
+                    q1.push(msg.data / wheel_relation2);
+                if(q1.size() > q_length)
+                    q1.pop();
+                w1 = average(q1);
+                w1_msg.data = w1;
+                
+            });
         r_enc_sub_ = this->create_subscription<std_msgs::msg::Float32>(
             "/VelocityEncR", rclcpp::QoS(rclcpp::KeepLast(10)).best_effort().durability_volatile(),
-            [this](const std_msgs::msg::Float32 &msg){this->w2 = msg.data * 0.62;});
+            [this](const std_msgs::msg::Float32 &msg){
+                if(q2.size() <= q_length)
+                    q2.push(msg.data);
+                if(q2.size() > q_length)
+                    q2.pop();
+                w2 = average(q2);
+                w2_msg.data = w2;
+            });
 
+        w1_smooth_pub_ = this->create_publisher<std_msgs::msg::Float32>("/w1_smooth", 10);
+        w2_smooth_pub_ = this->create_publisher<std_msgs::msg::Float32>("/w2_smooth", 10);
         pose_pub_ = this->create_publisher<geometry_msgs::msg::Vector3>("/pzb_pose", 10);
         vel_pub_ = this->create_publisher<geometry_msgs::msg::Vector3>("/pzb_vel", 10);
         pose_rviz_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/pose_rviz", 10);
         pose_path_pub_ = this->create_publisher<nav_msgs::msg::Path>("/pose_path", 10);
 
         updateTimer =
-            this->create_wall_timer(100ms, std::bind(&StateEstimateNode::update, this));
+            this->create_wall_timer(50ms, std::bind(&StateEstimateNode::update, this));
 
         xi << 0, 0, 0;
         xi_dot << 0, 0, 0;
@@ -61,8 +84,8 @@ private:
 
     rclcpp::Publisher<geometry_msgs::msg::Vector3>::SharedPtr pose_pub_, vel_pub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_rviz_pub_;
+    rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr w1_smooth_pub_, w2_smooth_pub_;
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pose_path_pub_;
-
 
     rclcpp::TimerBase::SharedPtr updateTimer;
 
@@ -70,23 +93,31 @@ private:
     geometry_msgs::msg::PoseStamped pose_stamped_msg;
     nav_msgs::msg::Path pose_path;
 
+    std_msgs::msg::Float32 w1_msg, w2_msg;
+
     tf2::Quaternion quat;
 
     float w1{0.0}, w2{0.0};
 
-    const float r{0.05}, l{0.08}, dt{0.1};
+    const float r{0.05}, l{0.08}, dt{0.05};
 
     Eigen::Vector3f xi, xi_dot;
+
+    double wheel_relation2{0.0};
+    double angle_ponder{0.0};
+
+    std::queue<double> q1, q2;
+    int q_length{10};
 
     void update() {       
         
         // Obtain velocity vector
         xi_dot << 
-                (r/2) * (this->w1 + this->w2) * cos(xi(2)),
-                (r/2) * (this->w1 + this->w2) * sin(xi(2)),
-                (r/(2*l)) * (this->w2 - this->w1);
+                (r/2) * (w1 + w2) * cos(xi(2)),
+                (r/2) * (w1 + w2) * sin(xi(2)),
+                (r/(2*l)) * (w2 - w1);
 
-        xi_dot(2) /= 0.75;
+        xi_dot(2) /= angle_ponder;
 
         // Integrate
         xi << xi + xi_dot * dt;
@@ -114,6 +145,21 @@ private:
         pose_rviz_pub_->publish(pose_stamped_msg);
         vel_pub_->publish(vel_msg);
         pose_path_pub_->publish(pose_path);
+        w1_smooth_pub_->publish(w1_msg);
+        w2_smooth_pub_->publish(w2_msg);
+    }
+
+    double average(std::queue<double> q){
+        int siz = q.size();
+        double sum{0};
+        while(q.size() > 0){
+            sum += q.front();
+            q.pop();
+        }
+        if(siz > 0)
+            return sum / siz;
+        else
+            return 0;
     }
 };
 

@@ -1,0 +1,14 @@
+guidance_node:
+  ros__parameters:
+    sides: 8
+    length: 0.6
+    wheel_relation: 0.852
+    KP: 1.0
+    KI: 0.1
+    KD: 0.5
+    u_max: 2.0
+    u_min: -2.0
+state_estimate:
+  ros__parameters:
+    wheel_relation2: 0.852
+    angle_ponder: 1.25

@@ -59,8 +59,8 @@ public:
             "/pzb_pose", 10,
             [this](const geometry_msgs::msg::Vector3 &msg){this->pose = msg;});
 
-        w1_des_pub_ = this->create_publisher<std_msgs::msg::Float32>("/VelocitySetL", 10);
-        w2_des_pub_ = this->create_publisher<std_msgs::msg::Float32>("/VelocitySetR", 10);
+        w1_des_pub_ = this->create_publisher<std_msgs::msg::Float32>("/w1_d", 10);
+        w2_des_pub_ = this->create_publisher<std_msgs::msg::Float32>("/w2_d", 10);
         cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
         wp_path_pub_ = this->create_publisher<nav_msgs::msg::Path>("/wp_path", 10);
 

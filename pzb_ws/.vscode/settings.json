@@ -40,6 +40,8 @@
     "files.associations": {
         "cmath": "cpp",
         "*.tcc": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "fstream": "cpp",
+        "locale": "cpp"
     }
 }

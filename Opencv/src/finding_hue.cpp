@@ -7,8 +7,34 @@
 
 using namespace std;
 using namespace cv;
+
+// Camera values
+int capture_width = 1280 ;
+int capture_height = 720 ;
+int display_width = 1280 ;
+int display_height = 720 ;
+int framerate = 30 ;
+int flip_method = 0 ;
+
+std::string gstreamer_pipeline(int capture_width, int capture_height, int display_width, int display_height, int framerate, int flip_method) {
+    return "nvarguscamerasrc ! video/x-raw(memory:NVMM), width=(int)" + std::to_string(capture_width) + ", height=(int)" +
+        std::to_string(capture_height) + ", framerate=(fraction)" + std::to_string(framerate) +
+        "/1 ! nvvidconv flip-method=" + std::to_string(flip_method) + " ! video/x-raw, width=(int)" + std::to_string(display_width) + ", height=(int)" +
+        std::to_string(display_height) + ", format=(string)BGRx ! videoconvert ! video/x-raw, format=(string)BGR ! appsink";
+}
+
 int main(int argc, char** argv) {
-    VideoCapture video_load(0);//capturing video from default camera//
+    std::string pipeline = gstreamer_pipeline(capture_width,
+        capture_height,
+        display_width,
+        display_height,
+        framerate,
+        flip_method);
+    cv::VideoCapture cap;
+    cap.open(pipeline, cv::CAP_GSTREAMER); //open raspberrypi camera
+
+
+    // VideoCapture video_load(0);//capturing video from default camera//
     namedWindow("Adjust");//declaring window to show the image//
     // Test with image 
 //    std::string image_path = samples::findFile("../image.jpeg");
@@ -19,7 +45,7 @@ int main(int argc, char** argv) {
 //    Mat showingframe = frame;
     
     //Reading json file
-    ifstream colorfile("../Data/ipad_colors.json", ifstream::binary);
+    ifstream colorfile("../Data/max_laptop.json", ifstream::binary);
     Json::Value colors;
     colorfile >> colors;
 
@@ -48,7 +74,8 @@ int main(int argc, char** argv) {
   Rect rect;
     while (1) {
         Mat frame;//matrix to load actual image//
-        bool temp = video_load.read(frame);//loading actual image to matrix from video stream//
+        cap.read(frame);
+        // bool temp = video_load.read(frame);//loading actual image to matrix from video stream//
         
         Mat convert_to_HSV;//declaring a matrix to store converted image//
         cvtColor(frame, convert_to_HSV, COLOR_BGR2HSV);//converting BGR image to HSV and storing it in convert_to_HSV matrix//
@@ -72,7 +99,7 @@ int main(int argc, char** argv) {
                 rectPoints[1].x = rect.x + rect.width; 
                 rectPoints[1].y = rect.y + rect.height; 
 //                rectangle(showingframe, rectPoints[0], rectPoints[1], CV_RGB(0,255,0), 2);
-                drawContours(frame, contours, i, CV_RGB(0,255,0), 2);
+                drawContours(frame, contours, i, CV_RGB(0,0,255), 2);
             }
         }
 

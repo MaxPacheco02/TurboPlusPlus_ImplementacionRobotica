@@ -61,6 +61,23 @@ ament_target_dependencies(
   pzb_msgs
 )
 
+add_executable(master_node src/master_node.cpp)
+ament_target_dependencies(
+  master_node
+  geometry_msgs
+  visualization_msgs
+  std_msgs
+  rclcpp
+  std_srvs
+  sensor_msgs
+  tf2
+  nav_msgs
+  tf2_ros
+  Eigen3
+  tf2_geometry_msgs
+  pzb_msgs
+)
+
 # install(PROGRAMS
 #   scripts/prisma.py
 #   scripts/speech_node.py
@@ -70,6 +87,7 @@ ament_target_dependencies(
 install(TARGETS
     state_estimate
     guidance_node
+    master_node
     DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)

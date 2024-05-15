@@ -34,12 +34,12 @@ def generate_launch_description():
         name='state_estimate',
         parameters=[pzb_config],
 
-        # Comment remappings for closed loop
-        # Uncomment remappings for open loop
-        remappings=[
-            ('/VelocityEncL', '/VelocitySetL'),
-            ('/VelocityEncR', '/VelocitySetR'),
-        ],
+        # Comment remappings for closed loop (REAL LIFE)
+        # Include remappings for open loop (SIMULATIONS AND TESTING)
+        # remappings=[
+        #     ('/VelocityEncL', '/VelocitySetL'),
+        #     ('/VelocityEncR', '/VelocitySetR'),
+        # ],
     )
 
     guidance_node = Node(
@@ -49,8 +49,15 @@ def generate_launch_description():
         parameters=[pzb_config],
     )
 
+    master_node = Node(
+        package='pzb_control',
+        executable='master_node',
+        name='master_node',
+    )
+
     return LaunchDescription([
         state_node,
         guidance_node,
         rviz_node,
+        master_node,
     ])

@@ -1,0 +1,27 @@
+{
+    "red" : {
+        "hue_low" : 152,
+        "hue_up" : 179,
+        "sat_low" : 132,
+        "sat_up" : 187,
+        "val_low" : 105,
+        "val_up" : 255
+    },
+    "yellow" : {
+        "hue_low" : 17,
+        "hue_up" : 36,
+        "sat_low" : 90,
+        "sat_up" : 190,
+        "val_low" : 88,
+        "val_up" : 165
+    },
+    "green" : {
+        "hue_low" : 41,
+        "hue_up" : 73,
+        "sat_low" : 71,
+        "sat_up" : 253,
+        "val_low" : 42,
+        "val_up" : 146
+    },
+    "type" : "green"
+}

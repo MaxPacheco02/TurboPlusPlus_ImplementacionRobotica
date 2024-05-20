@@ -42,10 +42,8 @@ class POINTS:
                 cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0),2)
         
         if(Wpx != 0):
-            arr = np.array([[x,y]], np.float32)
-            self.PBUV = np.append(self.PBUV,arr,axis=0)
-            arr = np.array([[x+w,y+h]], np.float32)
-            self.PBUV = np.append(self.PBUV,arr,axis=0)
+            self.PBUV[0,:] = [x,y] 
+            self.PBUV[1,:] = [x+w,y+h]
 
             # CALCULO DE DISTANCIA (mm)
             Wmm = (Wpx * self.A) / self.X

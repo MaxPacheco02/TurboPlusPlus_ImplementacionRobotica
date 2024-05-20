@@ -43,9 +43,9 @@ class POS:
         Tg = np.concatenate((self.Tg,[[1]]),axis=0)
         # PERFORM ROTATION
         self.Rc = self.Rg @ self.Rw
-        # TRASLACION CON MATRIZ HOMOGENEA
+        # TRASLACION 
         self.Pc = self.Pw + Tg
-        return self.Rc, self.Pc
+        return self.Rg, self.Pc #Original self.Rc, self.Pc
 
 
     # CALCULAR POSICION DE OBJETO 

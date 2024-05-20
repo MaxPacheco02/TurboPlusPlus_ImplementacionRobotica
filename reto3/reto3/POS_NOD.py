@@ -23,8 +23,7 @@ class ObjPos(Node):
 
         # CALIBRACION DE CAMARA Y MASCARA
         self.cam = CAM()
-        A = self.cam.cameraCalibrate()
-        self.get_logger().info(str(A))
+        self.cam.cameraCalibrate()
         self.cam.colorCal()
 
         # PARA OBTENCION DE PUNTOS EN PLANO DE IMAGEN
@@ -37,7 +36,7 @@ class ObjPos(Node):
         # POSICION DE OBJETO EN EL MUNDO
         self.PB1 = 0
         self.PB2 = 0
-
+        
         # POSICION DE OBJETO
         self.OBJ = Float32MultiArray()
         # POSICION DE CAMARA

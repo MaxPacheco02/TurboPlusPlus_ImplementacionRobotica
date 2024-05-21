@@ -16,17 +16,24 @@ def generate_launch_description():
     
     rviz_config = os.path.join(get_package_share_directory("object_display"),"rviz/","rviz.rviz")
 
+    config = os.path.join(
+        get_package_share_directory('object_display'),
+        'config/',
+        'params.yaml'
+        )
+
     rviz_node = Node(
         package='rviz2',
         executable='rviz2',
         name='rviz2',
-        arguments=['-d', rviz_config],
+        #arguments=['-d', rviz_config],
     )
 
     object_tracking_node = Node(
         package='object_display',
         executable='object_tracking',
         name='object_tracking',
+        parameters=[config]
     )
 
 

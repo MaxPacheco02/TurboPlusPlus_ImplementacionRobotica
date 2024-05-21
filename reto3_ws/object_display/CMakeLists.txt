@@ -23,6 +23,7 @@ find_package(Eigen3 REQUIRED)
 install(DIRECTORY
   launch
   rviz
+  config
   DESTINATION share/${PROJECT_NAME})
 
 add_executable(object_tracking src/object_tracking.cpp)

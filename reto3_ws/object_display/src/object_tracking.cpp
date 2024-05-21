@@ -25,6 +25,15 @@ class ObjectTracking : public rclcpp::Node
 {
   public:
     ObjectTracking() : Node("object_tracking") {
+        
+        // Declare parameters
+        this->declare_parameter("scale", rclcpp::PARAMETER_DOUBLE);
+        // Get parameters
+        scale_param = this->get_parameter("scale");
+
+        // Variables
+        scale = scale_param.as_double();
+
         objPos = Eigen::VectorXd::Zero(6);
         refPos = Eigen::VectorXd::Zero(12);
         
@@ -32,14 +41,14 @@ class ObjectTracking : public rclcpp::Node
         ref_pos_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>(
             "ref_pos", 10, [this](const std_msgs::msg::Float32MultiArray::SharedPtr msg){
                 for(int i=0; i<int(msg->data.size()); i++){
-                    refPos(i) = msg->data[i];
+                    refPos(i) = msg->data[i]*scale;
                 }
             }
         );
         obj_pos_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>(
             "obj_pos", 10, [this](const std_msgs::msg::Float32MultiArray::SharedPtr msg){
                 for(int i=0; i<int(msg->data.size()); i++){
-                    objPos(i) = msg->data[i];
+                    objPos(i) = msg->data[i]*scale;
                 }
             }
         );
@@ -67,8 +76,9 @@ class ObjectTracking : public rclcpp::Node
         object_marker_msg.header.frame_id = "world";
         object_marker_msg.action = 0;
         object_marker_msg.id = 0;
-        object_marker_msg.type = object_marker_msg.CUBE;
-        object_marker_msg.scale = geometry_msgs::build<geometry_msgs::msg::Vector3>().x(0.2).y(0.5).z(0.5); 
+        //object_marker_msg.type = object_marker_msg.CUBE;
+        object_marker_msg.type = object_marker_msg.SPHERE;
+        object_marker_msg.scale = geometry_msgs::build<geometry_msgs::msg::Vector3>().x(0.2).y(0.2).z(0.2); 
         object_marker_msg.pose.position.x = 0;
         object_marker_msg.pose.position.y = 0;
         object_marker_msg.pose.position.z = 0;
@@ -92,6 +102,9 @@ class ObjectTracking : public rclcpp::Node
     // Declaring subscribers
     rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr ref_pos_sub;
     rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr obj_pos_sub;
+    // Parameters
+    rclcpp::Parameter scale_param;
+
 
     // Declaring messages
     geometry_msgs::msg::PoseStamped pose_stamped_msg;
@@ -103,18 +116,30 @@ class ObjectTracking : public rclcpp::Node
     Eigen::VectorXd refPos;
 
 
+    // For pose_callback()
     int resolution = 100;
     int radius = 50;
     int i=0;
     tf2::Quaternion quat;
     tf2::Quaternion quatOrigin;
+    tf2::Quaternion quatObject;
 
-    int scale = 100;
+    float scale;
 
     void pose_callback() { 
-        float thetaX = atan2(refPos(5),refPos(11));
-        float thetaY = atan2(-refPos(2),sqrt( (refPos(0)*refPos(0)) + (refPos(1)*refPos(1)) ));
-        float thetaZ = atan2(refPos(1), refPos(0));
+        float sy = sqrt( (refPos(0)*refPos(0)) + (refPos(1)*refPos(1)) );
+        bool singular = sy < 1e-6;
+        float thetaX, thetaY, thetaZ;
+
+        if(!singular){
+            thetaX = atan2(refPos(5),refPos(8));
+            thetaY = atan2(-refPos(2),sy);
+            thetaZ = atan2(refPos(1), refPos(0));
+        }else{
+            thetaX = atan2(refPos(3),refPos(0));
+            thetaY = atan2(-refPos(2),sy);
+            thetaZ = 0;
+        }
 
         //float thetaX = M_PI/4;
         //float thetaY = M_PI/4;
@@ -123,18 +148,24 @@ class ObjectTracking : public rclcpp::Node
         // Reference of Camera poseStamped
         quat.setRPY(thetaX, thetaY, thetaZ);
         tf2::convert(quat, pose_stamped_msg.pose.orientation);
-        pose_stamped_msg.pose.position.x = refPos(9)/scale;
-        pose_stamped_msg.pose.position.y = refPos(10)/scale;
-        pose_stamped_msg.pose.position.z = refPos(11)/scale;
+        pose_stamped_msg.pose.position.x = refPos(9);
+        pose_stamped_msg.pose.position.y = refPos(10);
+        pose_stamped_msg.pose.position.z = refPos(11);
 
 
         // Object tracking Marker
-        object_marker_msg.pose.position.x = ((objPos(0) + objPos(3)) /2)/scale;
-        object_marker_msg.pose.position.y = ((objPos(1) + objPos(4)) /2)/scale;
-        object_marker_msg.pose.position.z = ((objPos(2)+objPos(5))/2)/scale;
+        quatObject.setRPY(0, 0, 0);
+        tf2::convert(quatObject, object_marker_msg.pose.orientation);
+        object_marker_msg.pose.position.x = ((objPos(0) + objPos(3)) /2);
+        object_marker_msg.pose.position.y = ((objPos(1) + objPos(4)) /2);
+        object_marker_msg.pose.position.z = ((objPos(2)+objPos(5))/2);
+
+        //object_marker_msg.pose.position.x = objPos(0);
+        //object_marker_msg.pose.position.y = objPos(1);
+        //object_marker_msg.pose.position.z = objPos(2);
 
         // Origin
-        quatOrigin.setRPY(0.0,0.0,0.0);
+        quatOrigin.setRPY(0,0,0);
         tf2::convert(quatOrigin, ref_stamped_msg.pose.orientation);
         ref_stamped_msg.pose.position.x = 0;
         ref_stamped_msg.pose.position.y = 0;

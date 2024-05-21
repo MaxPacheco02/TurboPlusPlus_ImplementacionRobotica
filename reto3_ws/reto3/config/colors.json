@@ -26,9 +26,9 @@
     "redc" : {
         "hue_low" : 160,
         "hue_up" : 180,
-        "sat_low" : 64, 
-        "sat_up" : 255,
-        "val_low" : 0,
+        "sat_low" : 139, 
+        "sat_up" : 224,
+        "val_low" : 70,
         "val_up" : 248 
     },
     "type" : "redc"

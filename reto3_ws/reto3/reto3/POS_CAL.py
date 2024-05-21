@@ -43,7 +43,7 @@ class CAM:
                 num += 1
             elif k == ord('q'):
                 break
-            cv2.imshow('Image',frame)
+            #cv2.imshow('Image',frame)
         IMG.release()
         cv2.destroyAllWindows()
 
@@ -88,8 +88,8 @@ class CAM:
                 
                 # Draw and display the corners
                 cv2.drawChessboardCorners(img, chessSize, corners2, ret)
-                cv2.imshow('Imagen', img)
-                cv2.waitKey(0)
+                #cv2.imshow('Imagen', img)
+                #cv2.waitKey(0)
 
         cv2.destroyAllWindows()
 

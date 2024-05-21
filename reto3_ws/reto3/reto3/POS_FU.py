@@ -26,14 +26,15 @@ class POS:
         # POSICION ORIGEN DE MUNDO
         self.Pw = np.array([[0, 0, 0, 0]]).T
         # FRAME DE MUNDO
-        self.Rw = np.array([[-62, 0, 0], [0, 62, 0], [0, 0, 62]])
+        #self.Rw = np.array([[-62, 0, 0], [0, 62, 0], [0, 0, 62]])
+        self.Rw = np.array([[62, 0, 0], [0, 62, 0], [0, 0, 62]])
         # POSICION DE REFERENCIAL DE CAMARA
         self.Pc = 0
         # FRAME DE CAMARA
         self.Rc = 0
         # TRASLACION Y ROTACION
         self.Tg = np.copy(self.T)
-        self.Tg[0][0] = self.Tg[0][0] * -1
+        # self.Tg[0][0] = self.Tg[0][0] * -1
         self.Rg = self.R
         # ---------------------------
 

@@ -63,8 +63,12 @@ class ObjPos(Node):
             self.PB1 = self.pos.objCal(np.array([[PUV[0][0],PUV[0][1],1]]).T,d)
             self.PB2 = self.pos.objCal(np.array([[PUV[1][0],PUV[1][1],1]]).T,d)
 
-            self.PB1[0][0] *= -1
-            self.PB2[0][0] *= -1
+            #Negative X
+            #self.PB1[0][0] *= -1
+            #self.PB2[0][0] *= -1
+            #Negative Y
+            self.PB1[1][0] *= -1
+            self.PB2[1][0] *= -1
 
             # PUBLICAR LISTA DE POSICIONES
             self.OBJ.data = np.ravel(self.PB1[:-1]).tolist() + np.ravel(self.PB2[:-1]).tolist()

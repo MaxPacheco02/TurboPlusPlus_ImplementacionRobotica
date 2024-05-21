@@ -26,7 +26,7 @@ def generate_launch_description():
         package='rviz2',
         executable='rviz2',
         name='rviz2',
-        #arguments=['-d', rviz_config],
+        arguments=['-d', rviz_config],
     )
 
     object_tracking_node = Node(

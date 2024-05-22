@@ -30,7 +30,7 @@ class ObjPos(Node):
         self.point = POINTS()
 
         # POSICION DE MUNDO Y CAMARA 
-        self.pos = POS(self.cam,2)
+        self.pos = POS(self.cam,0)
         self.Rc, self.Pc = self.pos.worldCal()
 
         # POSICION DE OBJETO EN EL MUNDO
@@ -67,8 +67,8 @@ class ObjPos(Node):
             #self.PB1[0][0] *= -1
             #self.PB2[0][0] *= -1
             #Negative Y
-            self.PB1[1][0] *= -1
-            self.PB2[1][0] *= -1
+            #self.PB1[1][0] *= -1
+            #self.PB2[1][0] *= -1
 
             # PUBLICAR LISTA DE POSICIONES
             self.OBJ.data = np.ravel(self.PB1[:-1]).tolist() + np.ravel(self.PB2[:-1]).tolist()

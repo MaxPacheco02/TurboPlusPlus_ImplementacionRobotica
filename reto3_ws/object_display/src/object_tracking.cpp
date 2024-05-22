@@ -156,8 +156,8 @@ class ObjectTracking : public rclcpp::Node
         // Object tracking Marker
         quatObject.setRPY(0, 0, 0);
         tf2::convert(quatObject, object_marker_msg.pose.orientation);
-        object_marker_msg.pose.position.x = ((objPos(0) + objPos(3)) /2);
-        object_marker_msg.pose.position.y = ((objPos(1) + objPos(4)) /2);
+        object_marker_msg.pose.position.y = -1*((objPos(0) + objPos(3)) /2); // Changing y to x
+        object_marker_msg.pose.position.x = -1*((objPos(1) + objPos(4)) /2);
         object_marker_msg.pose.position.z = ((objPos(2)+objPos(5))/2);
 
         //object_marker_msg.pose.position.x = objPos(0);

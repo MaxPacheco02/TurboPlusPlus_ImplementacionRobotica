@@ -3,9 +3,9 @@ from rclpy.node import Node
 import cv2
 import numpy as np
 
-from scipy import signal
 from std_msgs.msg import Int32
 from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
 
 
 class LineDetection(Node):
@@ -17,10 +17,15 @@ class LineDetection(Node):
         self.frame_sub = self.create_subscription(Image, 'camera_frame', self.subscriber_callback, 10)
         self.get_logger().info('line_detection_node Initialized')
 
+        self.bridge = CvBridge()
         self.error = Int32()
         
+        
     def subscriber_callback(self, IMG):
-        Dim = IMG.shape[:2]
+
+        IMG_N = self.bridge.imgmsg_to_cv2(IMG,desired_encoding='passthrough')
+
+        Dim = IMG_N.shape[:2]
 
         # CENTRO DE IMAGEN EN X
         x_c = int(Dim[1]*0.5)
@@ -35,7 +40,7 @@ class LineDetection(Node):
         contrast = 1
 
         # RECORTAR IMAGEN
-        frame = IMG[y_t : Dim[0] , x_c - x_t : x_c + x_t]
+        frame = IMG_N[y_t : Dim[0] , x_c - x_t : x_c + x_t]
 
 
         # DIMENSIONES DE IMAGEN RECORTADA
@@ -81,7 +86,7 @@ class LineDetection(Node):
         if M["m00"] != 0:
             cX = int(M["m10"] / M["m00"])
             cY = int(M["m01"] / M["m00"])
-            print("cX: " + str(cX) + "  cY: " + str(cY))
+            # print("cX: " + str(cX) + "  cY: " + str(cY))
         else:
             cX, cY = 0, 0
 

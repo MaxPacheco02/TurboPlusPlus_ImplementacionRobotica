@@ -124,13 +124,13 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /wp_path
+        Value: /pzb/path_to_follow
       Value: true
     - Class: rviz_default_plugins/Marker
       Enabled: true
       Name: Marker
       Namespaces:
-        "": true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -185,7 +185,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 2.0998480319976807
+      Distance: 6.689667224884033
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -200,10 +200,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.9047969579696655
+      Pitch: 1.5547964572906494
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 2.020400047302246
+      Yaw: 3.1404080390930176
     Saved: ~
 Window Geometry:
   Displays:

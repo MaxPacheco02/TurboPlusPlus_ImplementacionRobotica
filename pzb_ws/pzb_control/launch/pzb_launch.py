@@ -36,10 +36,10 @@ def generate_launch_description():
 
         # Comment remappings for closed loop (REAL LIFE)
         # Include remappings for open loop (SIMULATIONS AND TESTING)
-        # remappings=[
-        #     ('/VelocityEncL', '/VelocitySetL'),
-        #     ('/VelocityEncR', '/VelocitySetR'),
-        # ],
+        remappings=[
+            ('/VelocityEncL', '/VelocitySetL'),
+            ('/VelocityEncR', '/VelocitySetR'),
+        ],
     )
 
     guidance_node = Node(
@@ -59,5 +59,5 @@ def generate_launch_description():
         state_node,
         guidance_node,
         rviz_node,
-        master_node,
+        # master_node,
     ])

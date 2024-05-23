@@ -27,9 +27,7 @@ install(DIRECTORY
   config
   DESTINATION share/${PROJECT_NAME})
 
-add_executable(state_estimate src/state_estimate.cpp)
-ament_target_dependencies(
-  state_estimate
+set(DEPENDENCIES
   geometry_msgs
   visualization_msgs
   std_msgs
@@ -37,58 +35,37 @@ ament_target_dependencies(
   rclcpp
   sensor_msgs
   tf2
-  tf2_ros
   nav_msgs
+  tf2_ros
   Eigen3
   tf2_geometry_msgs
   pzb_msgs
 )
+
+add_executable(state_estimate src/state_estimate.cpp)
+ament_target_dependencies(state_estimate ${DEPENDENCIES})
 
 add_executable(guidance_node src/guidance_node.cpp)
-ament_target_dependencies(
-  guidance_node
-  geometry_msgs
-  visualization_msgs
-  std_msgs
-  rclcpp
-  std_srvs
-  sensor_msgs
-  tf2
-  nav_msgs
-  tf2_ros
-  Eigen3
-  tf2_geometry_msgs
-  pzb_msgs
-)
+ament_target_dependencies(guidance_node ${DEPENDENCIES})
 
 add_executable(master_node src/master_node.cpp)
-ament_target_dependencies(
-  master_node
-  geometry_msgs
-  visualization_msgs
-  std_msgs
-  rclcpp
-  std_srvs
-  sensor_msgs
-  tf2
-  nav_msgs
-  tf2_ros
-  Eigen3
-  tf2_geometry_msgs
-  pzb_msgs
+ament_target_dependencies(master_node ${DEPENDENCIES})
+
+add_executable(line_follower_path_publisher_node src/line_follower_path_publisher_node.cpp)
+ament_target_dependencies(line_follower_path_publisher_node ${DEPENDENCIES})
+
+# Install Python executables
+install(PROGRAMS
+  scripts/path_publisher_node.py
+  DESTINATION lib/${PROJECT_NAME}
 )
 
-# install(PROGRAMS
-#   scripts/prisma.py
-#   scripts/speech_node.py
-#   DESTINATION lib/${PROJECT_NAME}
-# )
-
 install(TARGETS
-    state_estimate
-    guidance_node
-    master_node
-    DESTINATION lib/${PROJECT_NAME})
+  state_estimate
+  guidance_node
+  master_node
+  line_follower_path_publisher_node
+  DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

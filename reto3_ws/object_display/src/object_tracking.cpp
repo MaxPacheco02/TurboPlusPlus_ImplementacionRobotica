@@ -78,7 +78,7 @@ class ObjectTracking : public rclcpp::Node
         object_marker_msg.id = 0;
         //object_marker_msg.type = object_marker_msg.CUBE;
         object_marker_msg.type = object_marker_msg.SPHERE;
-        object_marker_msg.scale = geometry_msgs::build<geometry_msgs::msg::Vector3>().x(0.2).y(0.2).z(0.2); 
+        object_marker_msg.scale = geometry_msgs::build<geometry_msgs::msg::Vector3>().x(1.4).y(1.4).z(1.4); 
         object_marker_msg.pose.position.x = 0;
         object_marker_msg.pose.position.y = 0;
         object_marker_msg.pose.position.z = 0;

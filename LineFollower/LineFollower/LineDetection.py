@@ -7,6 +7,7 @@ from std_msgs.msg import Int32
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 
+count = 0
 
 class LineDetection(Node):
     def __init__(self):
@@ -22,6 +23,7 @@ class LineDetection(Node):
         
         
     def subscriber_callback(self, IMG):
+        global count
 
         IMG_N = self.bridge.imgmsg_to_cv2(IMG,desired_encoding='passthrough')
 
@@ -92,6 +94,11 @@ class LineDetection(Node):
 
         self.error.data = cX - xn_c 
         self.error_pub.publish(self.error)
+
+
+        # cv2.circle(frame,(cX, cY), 10, (0,0,255),-1)
+        cv2.imwrite("/home/max/irs/src/TurboPlusPlus_ImplementacionRobotica/imggg"+str(count)+".png", frame)
+        count+=1
 
 
 def main(args=None):

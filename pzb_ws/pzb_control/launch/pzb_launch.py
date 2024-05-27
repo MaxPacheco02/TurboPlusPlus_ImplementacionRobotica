@@ -55,9 +55,16 @@ def generate_launch_description():
         name='master_node',
     )
 
+    line_follower_path_publisher_node = Node(
+        package='pzb_control',
+        executable='line_follower_path_publisher_node',
+        name='line_follower_path_publisher_node',
+    )
+
     return LaunchDescription([
         state_node,
         guidance_node,
         rviz_node,
+        line_follower_path_publisher_node,
         # master_node,
     ])

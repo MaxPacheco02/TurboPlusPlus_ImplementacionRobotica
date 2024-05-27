@@ -135,7 +135,7 @@ private:
             psi_d = std::atan2((wp_list[wp_i].y - this->pose.y), 
                 (wp_list[wp_i].x - this->pose.x));
 
-            vel_d = 0.15;
+            vel_d = 0.06;
             controller.saturateManipulation(get_angle_diff(psi_d, this->pose.z));
             ang_vel_d = -controller.u_;
 

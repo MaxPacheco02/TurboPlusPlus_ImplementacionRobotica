@@ -42,8 +42,8 @@ public:
             });
 
         lf_err_sub_ = this->create_subscription<std_msgs::msg::Int32>(
-            "/pzb/lf_err", 10,
-            [this](const std_msgs::msg::Int32 &msg){ lf_err = -msg.data / 100.0; });
+            "/error", 10,
+            [this](const std_msgs::msg::Int32 &msg){ lf_err = std::clamp(-msg.data / 1000.0, -0.5, 0.5); });
 
         path_pub_ = this->create_publisher<nav_msgs::msg::Path>("/pzb/path_to_follow", 10);
 

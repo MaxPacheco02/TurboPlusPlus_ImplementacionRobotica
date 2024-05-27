@@ -1,11 +1,11 @@
 {
-    "blue" : {
-        "hue_low" : 80,
-        "hue_up" : 130,
-        "sat_low" : 35,
-        "sat_up" : 120,
-        "val_low" : 32,
-        "val_up" : 93
+    "bluerobertshaw" : {
+        "hue_low" : 0,
+        "hue_up" : 180,
+        "sat_low" : 153,
+        "sat_up" : 241,
+        "val_low" : 79,
+        "val_up" : 144
     },
     "red" : {
         "hue_low" : 160,
@@ -31,5 +31,5 @@
         "val_low" : 70,
         "val_up" : 248 
     },
-    "type" : "redc"
+    "type" : "bluerobertshaw"
 }

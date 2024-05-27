@@ -48,6 +48,9 @@ class ObjPos(Node):
     def show(self):
 
         IMG = cv2.VideoCapture(0)
+        IMG .set(cv2.CAP_PROP_FRAME_WIDTH,1280)
+        IMG .set(cv2.CAP_PROP_FRAME_HEIGHT,720)
+
         while True:
             ret, frame = IMG.read()
             # CONVERTIR A HSV
@@ -79,11 +82,25 @@ class ObjPos(Node):
                             self.Rc[:,2].tolist() + np.ravel(self.Pc[:-1]).tolist()
             self.refPos_publisher.publish(self.POS)
 
+            # Midpoint of object (changing Axes for Xarm)
+            X_OFFSET = 0.3
+            Y_OFFSET = 0.3
+            Z_OFFSET = 0.0
+            scale = 0.0027
+
+            oy = (self.PB1[0] + self.PB2[0])/2 * scale + Y_OFFSET # y -> X
+            oz = -1*(self.PB1[1] + self.PB2[1])/2 * scale + Z_OFFSET # z -> Y 
+            ox = (self.PB1[2] + self.PB2[2])/2 * scale + X_OFFSET # x -> Z
+
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            cv2.putText(img, 'x: ' + str(ox), (50,50), font, 0.6, (0,0,255), 2, cv2.LINE_4)
+            cv2.putText(img, 'y: ' +str(oy), (50,75), font, 0.6, (0,255,0), 2, cv2.LINE_4)
+            cv2.putText(img, 'z: ' +str(oz), (50,100), font, 0.6, (255,0,0), 2, cv2.LINE_4)
+
             cv2.imshow("Imagen",img)
 
             k = cv2.waitKey(1)
             if(k == ord('q')):
-                break
-
+                break255
         IMG.release()
         cv2.destroyAllWindows()

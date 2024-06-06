@@ -24,9 +24,26 @@ install(DIRECTORY
 add_executable(color_detection src/color_detection.cpp)
 ament_target_dependencies(color_detection rclcpp std_msgs OpenCV sensor_msgs cv_bridge pzb_msgs)
 
+add_executable(camera_view src/camera_view.cpp)
+ament_target_dependencies(camera_view rclcpp std_msgs OpenCV sensor_msgs cv_bridge pzb_msgs)
+
 install(TARGETS
     color_detection
+    camera_view
   DESTINATION lib/${PROJECT_NAME})
+
+# Install Python executables
+
+install(DIRECTORY
+    scripts
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(PROGRAMS
+    scripts/line_detection_node.py
+    scripts/line_detection_node2.py
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

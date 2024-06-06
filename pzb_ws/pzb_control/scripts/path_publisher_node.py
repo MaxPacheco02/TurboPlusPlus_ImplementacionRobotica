@@ -15,7 +15,6 @@ from geometry_msgs.msg import Point
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Float32
 
-
 class PathPublisherNode(Node):
 
     def __init__(self):

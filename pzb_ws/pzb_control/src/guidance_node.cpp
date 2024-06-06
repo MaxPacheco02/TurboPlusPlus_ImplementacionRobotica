@@ -95,7 +95,7 @@ private:
 
     double psi_d{0.0}, vel_d{0.0}, ang_vel_d{0.0};
 
-    const double change_wp_dist{0.05};
+    const double change_wp_dist{0.1};
     const double r{0.05}, l{0.08};
     double wheel_relation;
     double dt{0.05};
@@ -142,10 +142,10 @@ private:
             // if(std::fabs(ang_vel_d) > 0.3)
             //     vel_d = 0;
 
-            if(wp_i == wp_list.size()) {
-                vel_d = 0.0;
-                ang_vel_d = 0.0;
-            }
+            // if(wp_i == wp_list.size()) {
+            //     vel_d = 0.0;
+            //     ang_vel_d = 0.0;
+            // }
 
             // RCLCPP_INFO(get_logger(), "u: %f", ang_vel_d);
             // RCLCPP_INFO(get_logger(), "wp_i: %d, size: %d, vel: %f, ang_v: %f", wp_i, wp_list.size(), vel_d, ang_vel_d);

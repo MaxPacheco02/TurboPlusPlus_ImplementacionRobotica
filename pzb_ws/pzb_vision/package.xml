@@ -11,12 +11,13 @@
   <depend>rclcpp</depend>
   <depend>std_msgs</depend>
   <exec_depend>pzb_msgs</exec_depend>
+  <depend>rclpy</depend>
+  <depend>cv2</depend>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
-    
 
   <export>
     <build_type>ament_cmake</build_type>

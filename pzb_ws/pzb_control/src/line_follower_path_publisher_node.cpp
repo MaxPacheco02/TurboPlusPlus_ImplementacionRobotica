@@ -72,7 +72,7 @@ private:
 
     void update() {
 
-        v << 1, lf_err, 0;
+        v << 0.7, lf_err, 0;
         r = rotM * v + pose;
 
         path_msg.poses[0].pose.position = 

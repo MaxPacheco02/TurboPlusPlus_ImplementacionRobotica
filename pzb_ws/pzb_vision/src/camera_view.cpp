@@ -3,12 +3,17 @@
 //OpenCV
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
+#include <opencv2/imgcodecs.hpp>
 //ROS
 #include <opencv2/highgui.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "sensor_msgs/msg/image.hpp"
+//Dependencies
+#include <vector>
+
+
 
 using namespace std::chrono_literals;
 
@@ -18,6 +23,8 @@ CameraView::CameraView():Node("camera_view"){
     floor_publisher_image = this->create_publisher<sensor_msgs::msg::Image>("floor_frame", 10);
     dotted_publisher_image = this->create_publisher<sensor_msgs::msg::Image>("dotted_frame", 10);
     signal_publisher_image = this->create_publisher<sensor_msgs::msg::Image>("signal_frame", 10);
+    publisher_compressed_image = this->create_publisher<sensor_msgs::msg::CompressedImage>("camera_frame_compressed", 10);
+
 
     // Creating timers
     sendFrame_timer = this->create_wall_timer(50ms, std::bind(&CameraView::sendingFrame_callback, this));
@@ -43,6 +50,10 @@ void CameraView::sendingFrame_callback() {
     if (frame.empty()) {
         RCLCPP_ERROR(this->get_logger(), "[ERROR] Blank frame grabbed!!!");
      }else{
+        cv::imencode(".jpeg", frame, buff_img);
+        compressed_img_msg.format=".jpeg";
+        compressed_img_msg.data=buff_img;
+
         cv::resize(frame, frame_resized, cv::Size(), 0.2, 0.2);
 
         frame_size = frame_resized.size();
@@ -62,6 +73,8 @@ void CameraView::sendingFrame_callback() {
         floor_publisher_image->publish(*floorFrame_msg.get());
         dotted_publisher_image->publish(*dottedFrame_msg.get());
         signal_publisher_image->publish(*signalFrame_msg.get());
+        publisher_compressed_image->publish(compressed_img_msg);
+
      }
 }
 

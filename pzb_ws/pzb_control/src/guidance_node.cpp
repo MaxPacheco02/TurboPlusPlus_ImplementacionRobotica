@@ -135,17 +135,17 @@ private:
             psi_d = std::atan2((wp_list[wp_i].y - this->pose.y), 
                 (wp_list[wp_i].x - this->pose.x));
 
-            vel_d = 0.06;
+            vel_d = 0.05;
             controller.saturateManipulation(get_angle_diff(psi_d, this->pose.z));
             ang_vel_d = -controller.u_;
 
             // if(std::fabs(ang_vel_d) > 0.3)
             //     vel_d = 0;
 
-            // if(wp_i == wp_list.size()) {
-            //     vel_d = 0.0;
-            //     ang_vel_d = 0.0;
-            // }
+            if(wp_i == wp_list.size()) {
+                vel_d = 0.0;
+                ang_vel_d = 0.0;
+            }
 
             // RCLCPP_INFO(get_logger(), "u: %f", ang_vel_d);
             // RCLCPP_INFO(get_logger(), "wp_i: %d, size: %d, vel: %f, ang_v: %f", wp_i, wp_list.size(), vel_d, ang_vel_d);

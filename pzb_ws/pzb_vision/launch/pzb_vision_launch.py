@@ -15,7 +15,13 @@ def generate_launch_description():
         executable='line_detection_node2.py',
     )
 
+    dotted_detection_node = Node(
+        package='pzb_vision',
+        executable='dotted_detection_node.py',
+    )
+
     return LaunchDescription([
         # camera_node,
         line_detection_node,
+        dotted_detection_node,
     ])

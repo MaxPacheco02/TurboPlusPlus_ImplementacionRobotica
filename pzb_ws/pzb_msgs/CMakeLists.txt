@@ -18,6 +18,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/VoiceCommand.msg"
   "msg/ObjectDetected.msg"
   "msg/ObjectDetectedVector.msg"
+  "msg/Signal.msg"
   DEPENDENCIES geometry_msgs)
 
 if(BUILD_TESTING)

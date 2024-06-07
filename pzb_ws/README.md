@@ -1,6 +1,10 @@
 ### Puzzlebot Workspace
 
+# ethernet
 ssh puzzlebot@10.42.0.197
+
+# max's hotspot
+ssh puzzlebot@10.42.0.52
 
 # para correr seguidor de linea
 # pzb

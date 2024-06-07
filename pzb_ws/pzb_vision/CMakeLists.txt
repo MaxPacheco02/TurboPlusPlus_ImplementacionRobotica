@@ -40,8 +40,10 @@ install(DIRECTORY
 )
 
 install(PROGRAMS
+    scripts/signal_detection_node.py
     scripts/line_detection_node.py
     scripts/line_detection_node2.py
+    scripts/dotted_detection_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

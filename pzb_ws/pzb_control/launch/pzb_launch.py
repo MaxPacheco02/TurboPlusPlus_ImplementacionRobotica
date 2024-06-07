@@ -72,7 +72,7 @@ def generate_launch_description():
     return LaunchDescription([
         state_node,
         guidance_node,
-        rviz_node,
+        # rviz_node,
         line_follower_path_publisher_node,
         # master_node,
         vision_launch,

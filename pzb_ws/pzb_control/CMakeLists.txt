@@ -48,22 +48,23 @@ ament_target_dependencies(state_estimate ${DEPENDENCIES})
 add_executable(guidance_node src/guidance_node.cpp)
 ament_target_dependencies(guidance_node ${DEPENDENCIES})
 
-add_executable(master_node src/master_node.cpp)
-ament_target_dependencies(master_node ${DEPENDENCIES})
+# add_executable(master_node src/master_node.cpp)
+# ament_target_dependencies(master_node ${DEPENDENCIES})
 
 add_executable(line_follower_path_publisher_node src/line_follower_path_publisher_node.cpp)
 ament_target_dependencies(line_follower_path_publisher_node ${DEPENDENCIES})
 
 # Install Python executables
 install(PROGRAMS
-  scripts/path_publisher_node.py
-  DESTINATION lib/${PROJECT_NAME}
+scripts/path_publisher_node.py
+scripts/pzb_teleop_node.py
+DESTINATION lib/${PROJECT_NAME}
 )
 
 install(TARGETS
   state_estimate
   guidance_node
-  master_node
+  # master_node
   line_follower_path_publisher_node
   DESTINATION lib/${PROJECT_NAME})
 

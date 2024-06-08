@@ -49,14 +49,20 @@ def generate_launch_description():
         parameters=[pzb_config],
     )
 
-    master_node = Node(
-        package='pzb_control',
-        executable='master_node',
-    )
 
     line_follower_path_publisher_node = Node(
         package='pzb_control',
         executable='line_follower_path_publisher_node',
+    )
+
+    pzb_teleop_node = Node(
+        package='pzb_control',
+        executable='pzb_teleop_node.py',
+    )
+
+    path_publisher_node = Node(
+        package='pzb_control',
+        executable='path_publisher_node.py',
     )
 
     vision_launch = IncludeLaunchDescription(
@@ -69,11 +75,19 @@ def generate_launch_description():
         ]),
     )
 
+    foxglove_bridge = Node(
+        name="foxglove_bridge",
+        package="foxglove_bridge",
+        executable="foxglove_bridge")
+
     return LaunchDescription([
         state_node,
         guidance_node,
         # rviz_node,
         line_follower_path_publisher_node,
-        # master_node,
         vision_launch,
+        # pzb_teleop_node, # NO AQUI, POR VENTANA APARTE JE
+
+        # path_publisher_node,
+        # foxglove_bridge,
     ])

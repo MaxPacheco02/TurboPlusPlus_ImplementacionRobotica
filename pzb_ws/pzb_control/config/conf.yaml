@@ -5,9 +5,9 @@ guidance_node:
     wheel_relation: 1.0
     KP: 1.0
     KI: 0.1
-    KD: 0.5
-    u_max: 2.0
-    u_min: -2.0
+    KD: 0.1
+    u_max: 0.5
+    u_min: -0.5
 state_estimate:
   ros__parameters:
     wheel_relation2: 1.0

@@ -1,1 +1,0 @@
-ObjectDetected[] object_detected_vector

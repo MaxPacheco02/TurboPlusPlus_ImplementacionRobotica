@@ -43,53 +43,77 @@ class SignalDetection(Node):
         self.bridge = CvBridge()
         self.signal = Signal()
 
-        self.yolo_file_ = os.path.join(
+        self.signals_file_ = os.path.join(
             get_package_share_directory('pzb_vision'),
             'config',
-            'yolo_signals.pt'
+            'signals.pt'
+        )
+        self.ampel_file_ = os.path.join(
+            get_package_share_directory('pzb_vision'),
+            'config',
+            'semaforo2.pt'
+        )
+        self.angie_file_ = os.path.join(
+            get_package_share_directory('pzb_vision'),
+            'config',
+            'bestEq54.pt'
         )
 
-        self.yolo = YOLO(self.yolo_file_)  # pretrained YOLOv8n model
+        self.yolo_signals = YOLO(self.signals_file_)  # pretrained YOLOv8n model
+        self.yolo_ampel = YOLO(self.ampel_file_)  # pretrained YOLOv8n model
+        self.yolo_angie = YOLO(self.angie_file_)  # pretrained YOLOv8n model
+        # self.yolos = [self.yolo_signals, self.yolo_ampel]
+        self.yolos = [self.yolo_angie]
+
+        self.counter = 0
 
         self.signals =	{
             "stop": Signal.STOP,
             "left": Signal.LEFT,
-            "circle": Signal.CIRCLE,
-            "slow": Signal.SLOW,
+            "rotonda": Signal.CIRCLE,
+            "workers": Signal.SLOW,
+            "green": Signal.GREEN,
+            "yellow": Signal.YELLOW,
+            "red": Signal.RED,
         }
         
     def subscriber_callback(self, IMG):
 
-        img = self.bridge.imgmsg_to_cv2(IMG,desired_encoding='passthrough')
-        w = img.shape[1] * 5
-        h = img.shape[0] * 5
-        img = cv2.resize(img,(w,h))
-        img_og = img.copy()
+        self.counter+=1
 
-        results = self.yolo(img, stream=True)
-        detections = []
-        for result in results:
-            for box in result.boxes:
-                cv2.rectangle(img, (int(box.xyxy[0][0]), int(box.xyxy[0][1])),
-                            (int(box.xyxy[0][2]), int(box.xyxy[0][3])), (255, 0, 0), 5)
-                cv2.putText(img, f"{result.names[int(box.cls[0])]}",
-                            (int(box.xyxy[0][0]), int(box.xyxy[0][1]) - 10),
-                            cv2.FONT_HERSHEY_PLAIN, 5, (255, 0, 0), 5)
-                detections.append([result.names[int(box.cls[0])], int(box.xyxy[0][0]), int(box.xyxy[0][1])])
+        if self.counter % 10 == 0:
 
-        detected_signal = ''
-        if len(detections) > 0:
-            detected_signal = detections[lowest_detected(detections)][0]
-        
-        self.signal.signal = -1
-        if detected_signal in self.signals:
-            self.signal.signal = self.signals[detected_signal]
-        self.signal_pub.publish(self.signal)
+            img = self.bridge.imgmsg_to_cv2(IMG,desired_encoding='passthrough')
+            w = img.shape[1] * 5
+            h = img.shape[0] * 5
+            img = cv2.resize(img,(w,h))
+            img_og = img.copy()
 
-        # # Viewing
-        # frames = cv2_conc([img_og, img])
-        # cv2.imshow('frames', frames)
-        # cv2.waitKey(1)
+            for yolo in self.yolos:
+                results = yolo(img, stream=True)
+                detections = []
+                for result in results:
+                    for box in result.boxes:
+                        cv2.rectangle(img, (int(box.xyxy[0][0]), int(box.xyxy[0][1])),
+                                    (int(box.xyxy[0][2]), int(box.xyxy[0][3])), (255, 0, 0), 5)
+                        cv2.putText(img, f"{result.names[int(box.cls[0])]}",
+                                    (int(box.xyxy[0][0]), int(box.xyxy[0][1]) - 10),
+                                    cv2.FONT_HERSHEY_PLAIN, 5, (255, 0, 0), 5)
+                        detections.append([result.names[int(box.cls[0])], int(box.xyxy[0][0]), abs(w - int(box.xyxy[0][1]))])
+
+            detected_signal = ''
+            if len(detections) > 0:
+                detected_signal = detections[lowest_detected(detections)][0]
+            
+            self.signal.signal = -1
+            if detected_signal in self.signals:
+                self.signal.signal = self.signals[detected_signal]
+            self.signal_pub.publish(self.signal)
+
+            # # Viewing
+            # frames = cv2_conc([img_og, img])
+            # cv2.imshow('frames', frames)
+            # cv2.waitKey(1)
 
 def main(args=None):
     rclpy.init(args=args)

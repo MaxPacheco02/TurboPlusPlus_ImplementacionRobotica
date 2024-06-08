@@ -18,6 +18,8 @@
 #include "std_msgs/msg/header.hpp"
 #include "std_msgs/msg/float32.hpp"
 
+#include "pzb_msgs/msg/signal.hpp"
+
 #include "std_srvs/srv/empty.hpp"
 
 #include "visualization_msgs/msg/marker.hpp"
@@ -46,18 +48,46 @@ public:
         KI = this->get_parameter("KI").as_double();
         this->declare_parameter("KD", 1.0); // default KD
         KD = this->get_parameter("KD").as_double();
-        this->declare_parameter("u_max", 1.0); // default u_max
+        this->declare_parameter("u_max", 2.); // default u_max
         u_max = this->get_parameter("u_max").as_double();
-        this->declare_parameter("u_min", 1.0); // default u_min
+        this->declare_parameter("u_min", 2.0); // default u_min
         u_min = this->get_parameter("u_min").as_double();
 
         pose_sub_ = this->create_subscription<geometry_msgs::msg::Vector3>(
             "/pzb_pose", 10,
             [this](const geometry_msgs::msg::Vector3 &msg){ this->pose = msg; });
 
+        signal_sub_ = this->create_subscription<pzb_msgs::msg::Signal>(
+            "/signal_detected", 10,
+            [this](const pzb_msgs::msg::Signal &msg){ 
+                switch(msg.signal){
+                    case pzb_msgs::msg::Signal::NONE:
+                        vel_multiplier = 1.;
+                        break;
+                    case pzb_msgs::msg::Signal::SLOW:
+                        vel_multiplier = 0.5;
+                        break;
+                    case pzb_msgs::msg::Signal::RED:
+                        vel_multiplier = 0.;
+                        break;
+                    case pzb_msgs::msg::Signal::YELLOW:
+                        vel_multiplier = 0.5;
+                        break;
+                    case pzb_msgs::msg::Signal::GREEN:
+                        vel_multiplier = 1.;
+                        break;
+                }
+            });
+
         path_sub_ = this->create_subscription<nav_msgs::msg::Path>(
             "/pzb/path_to_follow", 10,
-            [this](const nav_msgs::msg::Path &msg) { wp_list = get_wp_list(msg); });
+            [this](const nav_msgs::msg::Path &msg) { 
+                if(!same_msg(wp_list, msg)){
+                    // RCLCPP_INFO(get_logger(), "new wp!");
+                    wp_i = 0;
+                }
+                wp_list = get_wp_list(msg); 
+            });
 
         w1_des_pub_ = this->create_publisher<std_msgs::msg::Float32>("/VelocitySetL", 10);
         w2_des_pub_ = this->create_publisher<std_msgs::msg::Float32>("/VelocitySetR", 10);
@@ -76,6 +106,7 @@ public:
 private:
     rclcpp::Subscription<geometry_msgs::msg::Vector3>::SharedPtr pose_sub_;
     rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_sub_;
+    rclcpp::Subscription<pzb_msgs::msg::Signal>::SharedPtr signal_sub_;
 
     rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr w1_des_pub_, w2_des_pub_;
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
@@ -91,11 +122,11 @@ private:
 
     PID controller;
 
-    float motors_enabled{0};
+    float motors_enabled{1.};
 
     double psi_d{0.0}, vel_d{0.0}, ang_vel_d{0.0};
 
-    const double change_wp_dist{0.1};
+    const double change_wp_dist{0.05};
     const double r{0.05}, l{0.08};
     double wheel_relation;
     double dt{0.05};
@@ -103,8 +134,20 @@ private:
     double u_max{10.0}, u_min{-10.0};
 
     int wp_i{0};
+    float vel_multiplier{1.};
 
     std::vector<Waypoint> wp_list;
+
+    bool same_msg(std::vector<Waypoint> wps, nav_msgs::msg::Path msg){
+        if(wps.size() != msg.poses.size())
+            return false;
+        for(int i = 0 ; i < wps.size() ; i++){
+            if((wps[i].x != msg.poses[i].pose.position.x) ||
+                (wps[i].y != msg.poses[i].pose.position.y))
+                return false;
+        }
+        return true;
+    }
 
     float distance(geometry_msgs::msg::Vector3 pos, Waypoint wp){
         return sqrt(pow(pos.x - wp.x, 2) + pow(pos.y - wp.y, 2));   
@@ -135,12 +178,17 @@ private:
             psi_d = std::atan2((wp_list[wp_i].y - this->pose.y), 
                 (wp_list[wp_i].x - this->pose.x));
 
-            vel_d = 0.05;
+            vel_d = 0.04 * vel_multiplier;
+            // vel_d = 0.06;
             controller.saturateManipulation(get_angle_diff(psi_d, this->pose.z));
             ang_vel_d = -controller.u_;
 
-            // if(std::fabs(ang_vel_d) > 0.3)
-            //     vel_d = 0;
+            if(std::fabs(ang_vel_d) > 0.1)
+                vel_d/=1.5;
+            else if(std::fabs(ang_vel_d) > 0.2)
+                vel_d/=2.;
+            else if(std::fabs(ang_vel_d) > 0.3)
+                vel_d/=2.5;
 
             if(wp_i == wp_list.size()) {
                 vel_d = 0.0;

@@ -36,9 +36,12 @@ class ObjPos(Node):
         self.pos = POS(self.cam,2)
         self.Rc, self.Pc = self.pos.worldCal()
 
-        # POSICION DE OBJETO EN EL MUNDO
+        # POSICION DE OBJETO (ARUCO) EN EL MUNDO
         self.PB1 = 0
         self.PB2 = 0
+
+        # ORIENTACION DE ARUCO EN EL MUNDO
+        self.aruORI = 0
 
         # POSICION DE OBJETO
         self.OBJ = Float32MultiArray()
@@ -64,17 +67,19 @@ class ObjPos(Node):
                 continue
 
             if(self.cont == True):
-                # PUNTOS Y DISTANCIA
-                frame, PUV  = self.aru.pose_estimation(frame,self.cam.CamMat,self.cam.CamDis)
+                # ARU DISTANCIA
+                frame, PUV, aru_ROT  = self.aru.pose_estimation(frame,self.cam.CamMat,self.cam.CamDis)
                 d = self.point.aruDistance(PUV)
 
-                # CALCULAR POSICION DE PUNTOS DE OBJETO EN EL MUNDO
+                # CALCULAR ORIENTACION DE ARUCO EN EL MUNDO
+                self.aruORI = self.pos.aruOriToWorld(aru_ROT)
+
+                # CALCULAR POSICION DE PUNTOS DE ARUCO EN EL MUNDO
                 self.PB1 = self.pos.objCal(np.array([[PUV[0][0],PUV[0][1],1]]).T,d)
                 self.PB2 = self.pos.objCal(np.array([[PUV[1][0],PUV[1][1],1]]).T,d)
 
             # PUBLICAR LISTA DE POSICIONES
             self.OBJ.data = np.ravel(self.PB1[:-1]).tolist() + np.ravel(self.PB2[:-1]).tolist() + [self.aru.flag]
-
             self.objPos_publisher.publish(self.OBJ)
 
             # PUBLICAR LISTA DE POSICIONES DE REFERENCIALES 

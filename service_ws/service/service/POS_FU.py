@@ -21,19 +21,18 @@ class POS:
         self.H = np.concatenate((np.concatenate((self.R , self.T), axis=1),[[0,0,0,1]]), axis=0)
 
 
-        # PARA GRAFICAR (REFERENCIAL MUNDO TIENE -X EN CONFIG DE GRAFICA)
+        # PARA GRAFICAR [ARREGLADO] (YA NO SE OCUPA CAMBIAR SIGNOS)
         # ---------------------------
         # POSICION ORIGEN DE MUNDO
         self.Pw = np.array([[0, 0, 0, 0]]).T
         # FRAME DE MUNDO
-        self.Rw = np.array([[-62, 0, 0], [0, 62, 0], [0, 0, 62]])
+        self.Rw = np.array([[62, 0, 0], [0, 62, 0], [0, 0, 62]])
         # POSICION DE REFERENCIAL DE CAMARA
         self.Pc = 0
         # FRAME DE CAMARA
         self.Rc = 0
         # TRASLACION Y ROTACION
         self.Tg = np.copy(self.T)
-        self.Tg[0][0] = self.Tg[0][0] * -1
         self.Rg = self.R
         # ---------------------------
 
@@ -86,5 +85,10 @@ class POS:
         H_inv = np.concatenate((np.concatenate((R.T,(-R.T)@Tp), axis=1), [[0,0,0,1]]), axis=0)
         # DE REFERENCIAL DE CAMARA A REFERENCIAL DE MUNDO
         PW = H_inv @ C
-        PW = PW * -1
         return PW
+    
+
+    def aruOriToWorld(self,R_aru):
+        # DE REFERENCIAL DE CAMARA A REFRENCIAL DE ARUCO
+        R = np.linalg.inv(R_aru) @ self.Rc
+        return R

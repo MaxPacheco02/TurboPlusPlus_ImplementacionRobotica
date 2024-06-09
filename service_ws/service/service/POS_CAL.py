@@ -19,16 +19,6 @@ class CAM:
         self.CamRot = 0
         self.CamDis = 0
 
-        # HSV PARA MASCARA
-        self.h_min = 0
-        self.h_max = 0
-        self.s_min = 0
-        self.s_max = 0
-        self.v_min = 0
-        self.v_max = 0
-
-        self.mask = np.zeros([720,1280])
-
 
     # TOMAR FOTOS DE CHESSBOARD PARA CALIBRACION (*AHORITA NO LAS GUARDA)
     def imageCapture(self):
@@ -59,6 +49,20 @@ class CAM:
         # PUNTOS PARA PLANOS DE CALIBRACION
         objp = np.zeros((chessSize[0]*chessSize[0],3), np.float32)
         objp[:,:2] = np.mgrid[0:chessSize[0],0:chessSize[1]].T.reshape(-1,2)
+
+        # ------------------------------------------------------------------------------
+        #ACOMODAR PUNTOS PARA MANTENER REFERENCIAL SIN TENER QUE MODIFICAR SUS SIGNOS
+        for i in range(chessSize[0]-1,len(objp),chessSize[0]):
+            TEMP = objp[i-(chessSize[0]-1):i+1,:] 
+            objp[i-(chessSize[0]-1):i+1,:] = TEMP[::-1]
+            #  | y               #
+            #  |                 #
+            #  |                 #
+            #  |                 #
+            #  |                 #
+            #  . z ___________x  #
+        # ------------------------------------------------------------------------------
+
         # ASIGNAR MEDIDAS REALES A OBJP (MM)
         objp = objp * chessSq
         # ARREGLOS DE PUNTOS EN IMAGEN Y CORRESPONDENCIAS EN EL MUNDO
@@ -101,70 +105,3 @@ class CAM:
         self.CamRot = rvecs
         self.CamTra = tvecs
     
-
-    # Returns empty for trackbar
-    def empty(self,IMG):
-        pass
-
-    def colorCal(self):
-        # Open camera
-        cap = cv2.VideoCapture(0)
-
-        # OBTENER PATH DE DIRECTORIO DE JSON (EN DIRECTORIO SHARE DEL PAQUETE)
-        share_dir = get_package_share_directory('service')
-        json_path = os.path.join(share_dir, 'config','colors.json')
-
-        # ABRIR JSON FILE
-        f = open(json_path,'r') # Open json file
-        data = json.load(f) # Load data from json
-        f.close() # close file
-        color = data["type"] # chosing color
-
-        # Trackbars for calibration 
-        cv2.namedWindow("Trackbar")
-        cv2.resizeWindow("Trackbar",600,300)
-        cv2.createTrackbar("hue_min","Trackbar",data[color]["hue_low"],180,self.empty)   
-        cv2.createTrackbar("hue_max","Trackbar",data[color]["hue_up"],180,self.empty)
-        cv2.createTrackbar("sat_min","Trackbar",data[color]["sat_low"],255,self.empty)
-        cv2.createTrackbar("sat_max","Trackbar",data[color]["sat_up"],255,self.empty)
-        cv2.createTrackbar("val_min","Trackbar",data[color]["val_low"],255,self.empty)
-        cv2.createTrackbar("val_max","Trackbar",data[color]["val_up"],255,self.empty)
-        cv2.createTrackbar("low_threshold","Trackbar",0,255,self.empty)
-        cv2.createTrackbar("up_threshold","Trackbar",100,255,self.empty)
-
-        while True:
-            # Read frame from camera
-            ret, frame = cap.read()
-            # Convert to HSV
-            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-            # Values from trackbar
-            self.h_min = cv2.getTrackbarPos("hue_min", "Trackbar")
-            self.h_max = cv2.getTrackbarPos("hue_max", "Trackbar")
-            self.s_min = cv2.getTrackbarPos("sat_min", "Trackbar")
-            self.s_max = cv2.getTrackbarPos("sat_max", "Trackbar")
-            self.v_min = cv2.getTrackbarPos("val_min", "Trackbar")
-            self.v_max = cv2.getTrackbarPos("val_max", "Trackbar")
-
-            mask = self.procMask(hsv)
-
-            cv2.imshow("Mask", mask)
-            k = cv2.waitKey(1)
-            if(k==ord('q')):
-                break
-        cap.release()
-        cv2.destroyAllWindows()
-
-
-    def procMask(self,hsv):
-        # Range values of HSV
-        lower = np.array([self.h_min, self.s_min, self.v_min])
-        upper = np.array([self.h_max, self.s_max, self.v_max])
-        # Mask with HSV values 
-        self.mask = cv2.inRange(hsv, lower, upper)
-        # Cleaning mask
-        kernel = np.ones((5, 5), np.uint8) 
-        self.mask = cv2.erode(self.mask, kernel, iterations=1)
-        self.mask = cv2.dilate(self.mask, kernel, iterations=1)
-        self.mask = cv2.dilate(self.mask, kernel, iterations=1)
-        self.mask = cv2.erode(self.mask, kernel, iterations=1)
-        return self.mask

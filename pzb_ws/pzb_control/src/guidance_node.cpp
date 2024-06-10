@@ -129,6 +129,7 @@ private:
     const double change_wp_dist{0.05};
     const double r{0.05}, l{0.08};
     double wheel_relation;
+    double last_vel_d{0.};
     double dt{0.05};
     double KP{1.0}, KI{1.0}, KD{1.0};
     double u_max{10.0}, u_min{-10.0};
@@ -178,22 +179,28 @@ private:
             psi_d = std::atan2((wp_list[wp_i].y - this->pose.y), 
                 (wp_list[wp_i].x - this->pose.x));
 
-            vel_d = 0.04 * vel_multiplier;
+            vel_d = 0.25 * vel_multiplier;
             // vel_d = 0.06;
             controller.saturateManipulation(get_angle_diff(psi_d, this->pose.z));
             ang_vel_d = -controller.u_;
 
-            if(std::fabs(ang_vel_d) > 0.1)
-                vel_d/=1.5;
-            else if(std::fabs(ang_vel_d) > 0.2)
-                vel_d/=2.;
-            else if(std::fabs(ang_vel_d) > 0.3)
-                vel_d/=2.5;
+            double divid = (1. + std::fabs(ang_vel_d) * 0.5);
+
+            vel_d /= (divid*divid);
+
+            // if(std::fabs(ang_vel_d) > 0.1)
+            //     vel_d/=0.7;
+            // else if(std::fabs(ang_vel_d) > 0.2)
+            //     vel_d/=2.;
+            // else if(std::fabs(ang_vel_d) > 0.3)
+            //     vel_d/=2.5;
 
             if(wp_i == wp_list.size()) {
                 vel_d = 0.0;
                 ang_vel_d = 0.0;
             }
+
+            vel_d = last_vel_d + std::clamp(vel_d - last_vel_d, -1., 0.03);
 
             // RCLCPP_INFO(get_logger(), "u: %f", ang_vel_d);
             // RCLCPP_INFO(get_logger(), "wp_i: %d, size: %d, vel: %f, ang_v: %f", wp_i, wp_list.size(), vel_d, ang_vel_d);
@@ -208,6 +215,8 @@ private:
             this->cmd_vel_msg.linear.x = vel_d;
             this->cmd_vel_msg.angular.z = ang_vel_d;
             cmd_vel_pub_->publish(this->cmd_vel_msg);
+
+            last_vel_d = vel_d;
         }
     }
 

@@ -18,7 +18,6 @@ find_package(pzb_msgs REQUIRED)
 
 install(DIRECTORY
   launch
-  config
   DESTINATION share/${PROJECT_NAME})
 
 
@@ -28,9 +27,17 @@ ament_target_dependencies(camera_view rclcpp std_msgs OpenCV sensor_msgs cv_brid
 add_executable(decode_img src/decode_img.cpp)
 ament_target_dependencies(decode_img rclcpp std_msgs OpenCV sensor_msgs cv_bridge pzb_msgs)
 
+add_executable(line_detection src/line_detection.cpp)
+ament_target_dependencies(line_detection rclcpp std_msgs OpenCV sensor_msgs cv_bridge pzb_msgs)
+
+add_executable(dotted_detection src/dotted_detection.cpp)
+ament_target_dependencies(dotted_detection rclcpp std_msgs OpenCV sensor_msgs cv_bridge pzb_msgs)
+
 install(TARGETS
     camera_view
+    line_detection
     decode_img
+    dotted_detection
   DESTINATION lib/${PROJECT_NAME})
 
 # Install Python executables
@@ -42,8 +49,6 @@ install(DIRECTORY
 
 install(PROGRAMS
     scripts/signal_detection_node.py
-    scripts/line_detection_node.py
-    scripts/dotted_detection_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

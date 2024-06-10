@@ -90,7 +90,7 @@ class SignalDetection(Node):
             img_og = img.copy()
 
             for yolo in self.yolos:
-                results = yolo(img, stream=True)
+                results = yolo(img, stream=True, device=0)
                 detections = []
                 for result in results:
                     for box in result.boxes:

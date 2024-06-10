@@ -47,11 +47,9 @@ class CameraView : public rclcpp::Node
         rclcpp::TimerBase::SharedPtr sendFrame_timer;
 
         // Publishers
-        rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr publisher_image;
-        rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr floor_publisher_image;
-        rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr signal_publisher_image;
-        rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr dotted_publisher_image;
-        rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr publisher_compressed_image;
+        rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr floor_publisher_image;
+        rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr signal_publisher_image;
+        rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr dotted_publisher_image;
 
         // Variables
         cv::Mat frame;
@@ -59,15 +57,11 @@ class CameraView : public rclcpp::Node
         cv::Mat floor_frame, signal_frame, dotted_frame;
         cv::Size frame_size;
         cv::Rect floor_r, signal_r, dotted_r;
-        std::vector<uchar> buff_img;
+        std::vector<uchar> dotted_img, floor_img, signal_img;
 
         cv::VideoCapture cap;
         size_t count_;
 
         // Msg
-        sensor_msgs::msg::Image::SharedPtr cameraFrame_msg;
-        sensor_msgs::msg::Image::SharedPtr floorFrame_msg;
-        sensor_msgs::msg::Image::SharedPtr signalFrame_msg;
-        sensor_msgs::msg::Image::SharedPtr dottedFrame_msg;
-        sensor_msgs::msg::CompressedImage compressed_img_msg;
+        sensor_msgs::msg::CompressedImage floorFrame_msg, signalFrame_msg, dottedFrame_msg;
 };

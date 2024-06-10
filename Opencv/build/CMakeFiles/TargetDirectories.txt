@@ -1,3 +1,0 @@
-/home/max/irs/src/TurboPlusPlus_ImplementacionRobotica/Opencv/build/CMakeFiles/main.dir
-/home/max/irs/src/TurboPlusPlus_ImplementacionRobotica/Opencv/build/CMakeFiles/edit_cache.dir
-/home/max/irs/src/TurboPlusPlus_ImplementacionRobotica/Opencv/build/CMakeFiles/rebuild_cache.dir

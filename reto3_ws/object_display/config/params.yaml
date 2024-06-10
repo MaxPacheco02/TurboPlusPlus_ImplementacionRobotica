@@ -1,3 +1,0 @@
-object_tracking:
-  ros__parameters:
-    scale : 0.01

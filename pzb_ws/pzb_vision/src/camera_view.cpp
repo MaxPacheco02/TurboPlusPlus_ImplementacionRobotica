@@ -20,15 +20,12 @@ using namespace std::chrono_literals;
 
 CameraView::CameraView():Node("camera_view"){
     // Creating publishers
-    publisher_image = this->create_publisher<sensor_msgs::msg::Image>("camera_frame", 10);
-    floor_publisher_image = this->create_publisher<sensor_msgs::msg::Image>("floor_frame", 10);
-    dotted_publisher_image = this->create_publisher<sensor_msgs::msg::Image>("dotted_frame", 10);
-    signal_publisher_image = this->create_publisher<sensor_msgs::msg::Image>("signal_frame", 10);
-    publisher_compressed_image = this->create_publisher<sensor_msgs::msg::CompressedImage>("camera_frame_compressed", 10);
-
+    floor_publisher_image = this->create_publisher<sensor_msgs::msg::CompressedImage>("floor_frame", 10);
+    dotted_publisher_image = this->create_publisher<sensor_msgs::msg::CompressedImage>("dotted_frame", 10);
+    signal_publisher_image = this->create_publisher<sensor_msgs::msg::CompressedImage>("signal_frame", 10);
 
     // Creating timers
-    sendFrame_timer = this->create_wall_timer(50ms, std::bind(&CameraView::sendingFrame_callback, this));
+    sendFrame_timer = this->create_wall_timer(10ms, std::bind(&CameraView::sendingFrame_callback, this));
 
     // Create pipeline for raspberrypi camera
     std::string pipeline = this->gstreamer_pipeline(capture_width,
@@ -43,6 +40,10 @@ CameraView::CameraView():Node("camera_view"){
     if (!cap.isOpened())
         RCLCPP_ERROR(this->get_logger(), "[ERROR] Could not open Camera!!!");
     RCLCPP_INFO(this->get_logger(), "Node initialized JE :)");
+
+    floorFrame_msg.format=".jpeg";
+    dottedFrame_msg.format=".jpeg";
+    signalFrame_msg.format=".jpeg";
 }
 
 // Sending video frame with cv_bridge through topic
@@ -51,9 +52,6 @@ void CameraView::sendingFrame_callback() {
     if (frame.empty()) {
         RCLCPP_ERROR(this->get_logger(), "[ERROR] Blank frame grabbed!!!");
      }else{
-        cv::imencode(".jpeg", frame, buff_img);
-        compressed_img_msg.format=".jpeg";
-        compressed_img_msg.data=buff_img;
 
         cv::resize(frame, frame_resized, cv::Size(), 0.2, 0.2);
 
@@ -66,15 +64,16 @@ void CameraView::sendingFrame_callback() {
         signal_r = cv::Rect( 0, 0, frame_size.width, frame_size.height / 2);
         signal_frame = frame_resized(signal_r).clone();
 
-        cameraFrame_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", frame_resized).toImageMsg();
-        floorFrame_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", floor_frame).toImageMsg();
-        dottedFrame_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", dotted_frame).toImageMsg();
-        signalFrame_msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", signal_frame).toImageMsg();
-        publisher_image->publish(*cameraFrame_msg.get());
-        floor_publisher_image->publish(*floorFrame_msg.get());
-        dotted_publisher_image->publish(*dottedFrame_msg.get());
-        signal_publisher_image->publish(*signalFrame_msg.get());
-        publisher_compressed_image->publish(compressed_img_msg);
+        cv::imencode(".jpeg", dotted_frame, dotted_img);
+        dottedFrame_msg.data=dotted_img;
+        cv::imencode(".jpeg", signal_frame, signal_img);
+        signalFrame_msg.data=dotted_img;
+        cv::imencode(".jpeg", floor_frame, floor_img);
+        floorFrame_msg.data=floor_img;
+
+        dotted_publisher_image->publish(dottedFrame_msg);
+        signal_publisher_image->publish(signalFrame_msg);
+        floor_publisher_image->publish(floorFrame_msg);
 
      }
 }

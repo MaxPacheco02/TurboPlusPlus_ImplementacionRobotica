@@ -94,9 +94,9 @@ private:
 
     float lf_err{0.};
     int in_dotted{0};
-    int signal{pzb_msgs::msg::Signal::SLOW}, real_signal{pzb_msgs::msg::Signal::SLOW};
+    int signal{pzb_msgs::msg::Signal::SLOW}, real_signal{pzb_msgs::msg::Signal::STOP};
     int dotted_cooldown{80}, stop_cooldown{200};
-    float tele_x{0.}, tele_y{0.}, ahead{2.};
+    float tele_x{0.}, tele_y{0.}, ahead{1.}, ahead_perm{0.85}, div{1.};
     bool auto_mode{false};
     bool ending{false};
 
@@ -110,9 +110,11 @@ private:
             RCLCPP_INFO(get_logger(), "WAITING DOTTED CD %d", dotted_cooldown);
         }
 
+        div = (1 + std::fabs(lf_err) * 4.5);
+        ahead = ahead_perm / (div*div*div);
         
-        if(stop_cooldown > 100){
-            if(auto_mode){
+        if(auto_mode){
+            if(stop_cooldown > 100){
                 // RCLCPP_INFO(get_logger(), "AUTO");
                 if(!in_dotted){
                     // RCLCPP_INFO(get_logger(), "FOLLOWING LINE");
@@ -131,9 +133,10 @@ private:
                     RCLCPP_INFO(get_logger(), "v signal: %f, %f", v_vec[0](0), v_vec[0](1));
                     if(v_vec[0](0) == 0){
                         if(stop_cooldown < 200){
-                            stop_cooldown = -80;
+                            stop_cooldown = 100;
+                            dotted_cooldown = 100;
                             // stop_cooldown = 10;
-                            v << ahead, 0., 0.;
+                            v << ahead_perm/5, 0., 0.;
                             v_vec.clear();
                             v_vec.push_back(v);
                             // RCLCPP_INFO(get_logger(), "AHEAD SENT!");
@@ -145,46 +148,46 @@ private:
                         }
                     } else {
                         if(signal == pzb_msgs::msg::Signal::CIRCLE)
-                            stop_cooldown = -150;
+                            stop_cooldown = 60;
                         else
-                            stop_cooldown = -150;
+                            stop_cooldown = 60;
 
                         // stop_cooldown = -90;
                     // RCLCPP_INFO(get_logger(), "NADAAAAA!!!!!!!!!");
                     }
                 }
-            } else {
-                // RCLCPP_INFO(get_logger(), "IN TELEOP");
-                ending = false;
-                dotted_cooldown = 80;
-                path_base << pose(0), pose(1), 0.;
-                rotM << std::cos(-pose(2)), - std::sin(-pose(2)), 0, 
-                        std::sin(-pose(2)), std::cos(-pose(2)), 0, 
-                        0, 0, 1;
-                v << tele_x, tele_y, 0.;
-                v_vec.clear();
-                v_vec.push_back(v);
+            }  else {
+                RCLCPP_INFO(get_logger(), "WAITING STOPPED!");
             }
+        } else {
+            // RCLCPP_INFO(get_logger(), "IN TELEOP");
+            ending = false;
+            dotted_cooldown = 80;
+            path_base << pose(0), pose(1), 0.;
+            rotM << std::cos(-pose(2)), - std::sin(-pose(2)), 0, 
+                    std::sin(-pose(2)), std::cos(-pose(2)), 0, 
+                    0, 0, 1;
+            v << tele_x, tele_y, 0.;
+            v_vec.clear();
+            v_vec.push_back(v);
+        }
 
-            path_msg.poses.clear();
-            geometry_msgs::msg::PoseStamped pose_stamped_msg;
+        path_msg.poses.clear();
+        geometry_msgs::msg::PoseStamped pose_stamped_msg;
+
+        pose_stamped_msg.pose.position = 
+            geometry_msgs::build<geometry_msgs::msg::Point>()
+            .x(path_base(0)).y(path_base(1)).z(0.);
+        path_msg.poses.push_back(pose_stamped_msg);
+
+        for(int i = 0 ; i < v_vec.size(); i++){
+            r = rotM * v_vec[i] + path_base;
 
             pose_stamped_msg.pose.position = 
                 geometry_msgs::build<geometry_msgs::msg::Point>()
-                .x(path_base(0)).y(path_base(1)).z(0.);
+                .x(r(0)).y(r(1)).z(0.);
             path_msg.poses.push_back(pose_stamped_msg);
 
-            for(int i = 0 ; i < v_vec.size(); i++){
-                r = rotM * v_vec[i] + path_base;
-
-                pose_stamped_msg.pose.position = 
-                    geometry_msgs::build<geometry_msgs::msg::Point>()
-                    .x(r(0)).y(r(1)).z(0.);
-                path_msg.poses.push_back(pose_stamped_msg);
-
-            }
-        } else {
-            RCLCPP_INFO(get_logger(), "WAITING STOP CD %d", stop_cooldown);
         }
 
         path_pub_->publish(path_msg);
@@ -218,7 +221,7 @@ private:
                 break;
             default:
                 RCLCPP_INFO(get_logger(), "FOLLOWING LINE, no signal: %d", signal);
-                v_tmp << ahead, lf_err, 0.;
+                v_tmp << ahead_perm / 2., lf_err, 0.;
                 vs.push_back(v_tmp);
                 ending = true;
                 break;

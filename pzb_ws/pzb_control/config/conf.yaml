@@ -3,9 +3,9 @@ guidance_node:
     sides: 4
     length: 0.5
     wheel_relation: 1.0
-    KP: 3.1
+    KP: 1.
     KI: 0.01
-    KD: 0.1
+    KD: 0.01 
     u_max: 1.
     u_min: -1.
 state_estimate:

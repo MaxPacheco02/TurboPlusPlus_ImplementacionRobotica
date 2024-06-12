@@ -7,7 +7,7 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CompressedImage
 from cv_bridge import CvBridge
 
 from pzb_msgs.msg import Signal
@@ -26,44 +26,25 @@ def cv2_conc(imgs):
         frames = np.concatenate((frames, tmp), axis=0) 
     return frames
 
-def lowest_detected(detections):
-    lowest_id = 0
-    for i in range(1,len(detections)):
-        if detections[i][2] < detections[lowest_id][2]:
-            lowest_id = i
-    return lowest_id
-
 class SignalDetection(Node):
     def __init__(self):
         super().__init__('signal_detection')
         self.signal_pub = self.create_publisher(Signal, '/signal_detected', 10)
-        self.frame_sub = self.create_subscription(Image, '/signal_frame', self.subscriber_callback, 10)
+        self.frame_sub = self.create_subscription(CompressedImage, '/signal_frame', self.subscriber_callback, 10)
         self.get_logger().info('signal_detection Initialized')
 
         self.bridge = CvBridge()
         self.signal = Signal()
 
-        self.signals_file_ = os.path.join(
+        self.zeimien_file_ = os.path.join(
             get_package_share_directory('pzb_vision'),
             'config',
-            'signals.pt'
-        )
-        self.ampel_file_ = os.path.join(
-            get_package_share_directory('pzb_vision'),
-            'config',
-            'semaforo2.pt'
-        )
-        self.angie_file_ = os.path.join(
-            get_package_share_directory('pzb_vision'),
-            'config',
-            'bestEq54.pt'
+            'yolo_pzb.pt'
         )
 
-        self.yolo_signals = YOLO(self.signals_file_)  # pretrained YOLOv8n model
-        self.yolo_ampel = YOLO(self.ampel_file_)  # pretrained YOLOv8n model
-        self.yolo_angie = YOLO(self.angie_file_)  # pretrained YOLOv8n model
+        self.zeimien = YOLO(self.zeimien_file_)  # pretrained YOLOv8n model
         # self.yolos = [self.yolo_signals, self.yolo_ampel]
-        self.yolos = [self.yolo_angie]
+        self.yolos = [self.zeimien]
 
         self.counter = 0
 
@@ -71,26 +52,37 @@ class SignalDetection(Node):
             "stop": Signal.STOP,
             "left": Signal.LEFT,
             "rotonda": Signal.CIRCLE,
+            "circle": Signal.CIRCLE,
             "workers": Signal.SLOW,
+            "slow": Signal.SLOW,
             "green": Signal.GREEN,
             "yellow": Signal.YELLOW,
             "red": Signal.RED,
+            "up": Signal.UP,
+            "straight": Signal.UP,
         }
+
+        self.workers_detected = False
         
     def subscriber_callback(self, IMG):
 
         self.counter+=1
 
-        if self.counter % 10 == 0:
+        if self.counter > 0:
+            # np_arr = np.fromstring(IMG.data, np.uint8)
+            # img = cv2.imdecode(np_arr, cv2.CV_LOAD_IMAGE_COLOR)
+            img = self.bridge.compressed_imgmsg_to_cv2(IMG)
 
-            img = self.bridge.imgmsg_to_cv2(IMG,desired_encoding='passthrough')
-            w = img.shape[1] * 5
-            h = img.shape[0] * 5
-            img = cv2.resize(img,(w,h))
+            # img = self.bridge.imgmsg_to_cv2(IMG,desired_encoding='passthrough')
+            w = img.shape[1]
+            h = img.shape[0]
+            # w = img.shape[1]*5
+            # h = img.shape[0]*5
+            # img = cv2.resize(img,(w,h))
             img_og = img.copy()
 
             for yolo in self.yolos:
-                results = yolo(img, stream=True, device=0)
+                results = yolo(img, stream=True)
                 detections = []
                 for result in results:
                     for box in result.boxes:
@@ -99,11 +91,16 @@ class SignalDetection(Node):
                         cv2.putText(img, f"{result.names[int(box.cls[0])]}",
                                     (int(box.xyxy[0][0]), int(box.xyxy[0][1]) - 10),
                                     cv2.FONT_HERSHEY_PLAIN, 5, (255, 0, 0), 5)
-                        detections.append([result.names[int(box.cls[0])], int(box.xyxy[0][0]), abs(w - int(box.xyxy[0][1]))])
+                        if not (result.names[int(box.cls[0])]=="left" and self.workers_detected):
+                            detections.append([result.names[int(box.cls[0])], int(box.xyxy[0][0]), abs(w - int(box.xyxy[0][1]))])
+                        if result.names[int(box.cls[0])] == "workers":
+                            self.workers_detected = True
+                        
+
 
             detected_signal = ''
             if len(detections) > 0:
-                detected_signal = detections[lowest_detected(detections)][0]
+                detected_signal = detections[self.lowest_detected(detections)][0]
             
             self.signal.signal = -1
             if detected_signal in self.signals:
@@ -112,8 +109,18 @@ class SignalDetection(Node):
 
             # # Viewing
             # frames = cv2_conc([img_og, img])
-            # cv2.imshow('frames', frames)
+            # cv2.imshow('frames', img)
             # cv2.waitKey(1)
+
+    def lowest_detected(self,detections):
+        lowest_id = 0
+        for i in range(1,len(detections)):
+            if detections[i][2] < detections[lowest_id][2]:
+                lowest_id = i
+            if not self.workers_detected:
+                if detections[i][0] == "left":
+                    lowest_id = i
+        return lowest_id
 
 def main(args=None):
     rclpy.init(args=args)

@@ -57,7 +57,7 @@ void CameraView::sendingFrame_callback() {
 
         frame_size = frame_resized.size();
 
-        dotted_r = cv::Rect( 0, frame_size.height / 2, frame_size.width, frame_size.height / 5);
+        dotted_r = cv::Rect( 0, frame_size.height * 3 / 5, frame_size.width, frame_size.height / 5);
         dotted_frame = frame_resized(dotted_r).clone();
         floor_r = cv::Rect( 0, 4 * frame_size.height / 5, frame_size.width, frame_size.height / 5);
         floor_frame = frame_resized(floor_r).clone();
@@ -67,7 +67,7 @@ void CameraView::sendingFrame_callback() {
         cv::imencode(".jpeg", dotted_frame, dotted_img);
         dottedFrame_msg.data=dotted_img;
         cv::imencode(".jpeg", signal_frame, signal_img);
-        signalFrame_msg.data=dotted_img;
+        signalFrame_msg.data=signal_img;
         cv::imencode(".jpeg", floor_frame, floor_img);
         floorFrame_msg.data=floor_img;
 

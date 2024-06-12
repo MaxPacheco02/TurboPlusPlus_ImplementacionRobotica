@@ -94,7 +94,7 @@ private:
 
     float lf_err{0.};
     int in_dotted{0};
-    int signal{pzb_msgs::msg::Signal::SLOW}, real_signal{pzb_msgs::msg::Signal::STOP};
+    int signal{pzb_msgs::msg::Signal::STOP}, real_signal{pzb_msgs::msg::Signal::STOP};
     int dotted_cooldown{80}, stop_cooldown{200};
     float tele_x{0.}, tele_y{0.}, ahead{1.}, ahead_perm{0.85}, div{1.};
     bool auto_mode{false};
@@ -110,7 +110,7 @@ private:
             RCLCPP_INFO(get_logger(), "WAITING DOTTED CD %d", dotted_cooldown);
         }
 
-        div = (1 + std::fabs(lf_err) * 4.5);
+        div = (1 + std::fabs(lf_err) * 8.);
         ahead = ahead_perm / (div*div*div);
         
         if(auto_mode){
@@ -147,11 +147,13 @@ private:
                             stop_cooldown = 0;
                         }
                     } else {
-                        if(signal == pzb_msgs::msg::Signal::CIRCLE)
-                            stop_cooldown = 60;
-                        else
-                            stop_cooldown = 60;
-
+                        if(signal == pzb_msgs::msg::Signal::CIRCLE || 
+                            signal == pzb_msgs::msg::Signal::LEFT)
+                            stop_cooldown = 0;
+                        else{
+                            stop_cooldown = 50;
+                            dotted_cooldown = 90;
+                        }
                         // stop_cooldown = -90;
                     // RCLCPP_INFO(get_logger(), "NADAAAAA!!!!!!!!!");
                     }
@@ -204,24 +206,29 @@ private:
                 vs.push_back(v_tmp);
                 break;
             case pzb_msgs::msg::Signal::LEFT:
-                v_tmp << 0.2, 0., 0.;
+                v_tmp << 0.1, 0.05, 0.;
                 vs.push_back(v_tmp);
-                v_tmp << 0.3, 0.1, 0.;
+                v_tmp << 0.24, 0.1, 0.;
                 vs.push_back(v_tmp);
-                v_tmp << 0.35, 0.3, 0.;
+                v_tmp << 0.27, 0.25, 0.;
                 vs.push_back(v_tmp);
                 break;
             case pzb_msgs::msg::Signal::CIRCLE:
-                v_tmp << 0.2, 0., 0.;
+                v_tmp << 0.2, -0.05, 0.;
                 vs.push_back(v_tmp);
-                v_tmp << 0.3, -0.05, 0.;
+                v_tmp << 0.2, -0.1, 0.;
                 vs.push_back(v_tmp);
-                v_tmp << 0.35, -0.25, 0.;
+                v_tmp << 0.26, -0.3, 0.;
                 vs.push_back(v_tmp);
                 break;
+            case pzb_msgs::msg::Signal::UP:
+                v_tmp << ahead_perm * 3 / 4, lf_err, 0.;
+                vs.push_back(v_tmp);
+                ending = true;
+                break;
             default:
-                RCLCPP_INFO(get_logger(), "FOLLOWING LINE, no signal: %d", signal);
-                v_tmp << ahead_perm / 2., lf_err, 0.;
+                RCLCPP_INFO(get_logger(), "FOLLOWING NOTHING: %d", signal);
+                v_tmp << ahead_perm/2, lf_err, 0.;
                 vs.push_back(v_tmp);
                 ending = true;
                 break;

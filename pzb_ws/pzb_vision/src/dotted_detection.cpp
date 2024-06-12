@@ -86,12 +86,12 @@ class DottedDetection : public rclcpp::Node
       dotted_msg.data = result.clusters > 3 ? 1 : 0;
       dotted_pub_->publish(dotted_msg);
 
-      frames = cv2_conc(std::vector<cv::Mat>{img, img_weighted, thresh, result.frame});
-      int w_f = frames.cols*5;
-      int h_f = frames.rows*5;
-      resize(frames, frames, cv::Size(w_f, h_f), cv::INTER_LINEAR);
-      cv::imshow("frame",frames);
-      cv::waitKey(1);
+      // frames = cv2_conc(std::vector<cv::Mat>{img, img_weighted, thresh, result.frame});
+      // int w_f = frames.cols*5;
+      // int h_f = frames.rows*5;
+      // resize(frames, frames, cv::Size(w_f, h_f), cv::INTER_LINEAR);
+      // cv::imshow("frame",frames);
+      // cv::waitKey(1);
     }
 
     cv::Mat cv2_conc(std::vector<cv::Mat> vec){

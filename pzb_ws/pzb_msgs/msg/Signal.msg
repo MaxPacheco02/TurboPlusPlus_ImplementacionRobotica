@@ -6,5 +6,6 @@ int8 SLOW=3
 int8 GREEN=4
 int8 YELLOW=5
 int8 RED=6
+int8 UP=7
 
 int8 signal

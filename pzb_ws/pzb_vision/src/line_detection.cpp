@@ -22,7 +22,7 @@ class LineDetection : public rclcpp::Node
   public:
     LineDetection() : Node("line_detection") {
         error_pub_ = this->create_publisher<std_msgs::msg::Int32>("error", 10);
-        frame_sub_ = this->create_subscription<sensor_msgs::msg::CompressedImage>("floor_frame", 10, 
+        frame_sub_ = this->create_subscription<sensor_msgs::msg::CompressedImage>("dotted_frame", 10, 
                         std::bind(&LineDetection::subscriber_callback, this, _1));
         RCLCPP_INFO(this->get_logger(), "Node[line_detection_node] initialized =)");
     }
@@ -62,6 +62,7 @@ class LineDetection : public rclcpp::Node
       
       int w = img.cols;
       int h = img.rows;
+      // resize(img, img, cv::Size(w, h), cv::INTER_LINEAR);
 
       // Cutting image 
       int x_c = round(w/2);
@@ -88,7 +89,7 @@ class LineDetection : public rclcpp::Node
 
       if(cx != thresh_pure.cols/2 || cy != thresh_pure.rows/2){
         cv::Point pt(cx, cy);
-        cv::circle(img, pt, 10, (0,0,255), -1);
+        cv::circle(img, pt, 5, (0,0,255), -1);
       }
 
       error_msg.data = (cx - thresh_pure.cols/2) * 5.;

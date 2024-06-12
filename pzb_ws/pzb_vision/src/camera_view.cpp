@@ -67,7 +67,7 @@ void CameraView::sendingFrame_callback() {
         cv::imencode(".jpeg", dotted_frame, dotted_img);
         dottedFrame_msg.data=dotted_img;
         cv::imencode(".jpeg", signal_frame, signal_img);
-        signalFrame_msg.data=dotted_img;
+        signalFrame_msg.data=signal_img;
         cv::imencode(".jpeg", floor_frame, floor_img);
         floorFrame_msg.data=floor_img;
 

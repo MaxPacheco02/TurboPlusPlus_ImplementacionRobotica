@@ -10,7 +10,7 @@
 #include "tf2_ros/transform_listener.h"
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include "tf2_ros/buffer.h"
-
+#include "visualization_msgs/msg/marker_array.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 
 // Package obj node
@@ -23,7 +23,9 @@ using namespace std::chrono_literals;
 
 class ObjectTracking : public rclcpp::Node
 {
+
   public:
+  
     ObjectTracking() : Node("object_tracking") {
         
         // Declare parameters
@@ -34,7 +36,7 @@ class ObjectTracking : public rclcpp::Node
         // Variables
         scale = scale_param.as_double();
 
-        objPos = Eigen::VectorXd::Zero(6);
+        objPos = Eigen::VectorXd::Zero(13);
         refPos = Eigen::VectorXd::Zero(12);
         
         // Subscribers
@@ -47,17 +49,21 @@ class ObjectTracking : public rclcpp::Node
         );
         obj_pos_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>(
             "obj_pos", 10, [this](const std_msgs::msg::Float32MultiArray::SharedPtr msg){
-                for(int i=0; i<int(msg->data.size()-1); i++){
-                    objPos(i) = msg->data[i]*scale;
+                for(int i=0; i<int(msg->data.size()); i++){
+                    if(i < 12){
+                        objPos(i) = msg->data[i]*scale;
+                    }else{
+                        objPos(i) = msg->data[i];
+                    }
                 }
             }
         );
 
-        
         // Instance Publishers
         pose_rviz_publisher = this->create_publisher<geometry_msgs::msg::PoseStamped>("/my_pose_rviz", 10); 
         ref_rviz_publisher = this->create_publisher<geometry_msgs::msg::PoseStamped>("/my_ref_rviz", 10); 
-        object_marker_publisher = this->create_publisher<visualization_msgs::msg::Marker>("/my_object", 10);
+        object_rviz_publisher = this->create_publisher<geometry_msgs::msg::PoseStamped>("/my_object", 10);
+        object_marker_array_publisher = this->create_publisher<visualization_msgs::msg::MarkerArray>("/my_object_array", 10);
 
         // Instance Timers
         pose_timer = this->create_wall_timer(50ms, std::bind(&ObjectTracking::pose_callback, this));
@@ -65,103 +71,94 @@ class ObjectTracking : public rclcpp::Node
         // Instance msg
         pose_stamped_msg.header.frame_id = "world";
         ref_stamped_msg.header.frame_id = "world";
-
-        // marker
-        double color_list[4][4]{
-        {1,0,0,1},
-        {0,1,0,1},
-        {1,1,0,1},
-        {0.1,0.1,0.1,1},
-        };
-        object_marker_msg.header.frame_id = "world";
-        object_marker_msg.action = 0;
-        object_marker_msg.id = 0;
-        object_marker_msg.type = object_marker_msg.SPHERE; //object_marker_msg.type = object_marker_msg.CUBE;
-        object_marker_msg.scale = geometry_msgs::build<geometry_msgs::msg::Vector3>().x(0.5).y(0.5).z(0.5); 
-        object_marker_msg.pose.position.x = 0;
-        object_marker_msg.pose.position.y = 0;
-        object_marker_msg.pose.position.z = 0;
-        object_marker_msg.color = std_msgs::build<std_msgs::msg::ColorRGBA>().
-                        r(color_list[0][0]).
-                        g(color_list[0][1]).
-                        b(color_list[0][2]).
-                        a(color_list[0][3]);
+        object_stamped_msg.header.frame_id = "world";
 
         // Finish initializing
         RCLCPP_INFO(this->get_logger(), "Node[object_tracking] Initialized =)");
     }
 
+
   private:
+
     // Declaring timers
     rclcpp::TimerBase::SharedPtr pose_timer;  
     // Declaring publisher
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_rviz_publisher;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr ref_rviz_publisher;
-    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr object_marker_publisher;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr object_rviz_publisher;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr object_marker_array_publisher;
+
     // Declaring subscribers
     rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr ref_pos_sub;
     rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr obj_pos_sub;
     // Parameters
     rclcpp::Parameter scale_param;
 
-
     // Declaring messages
     geometry_msgs::msg::PoseStamped pose_stamped_msg;
     geometry_msgs::msg::PoseStamped ref_stamped_msg;
-    visualization_msgs::msg::Marker object_marker_msg;
+    geometry_msgs::msg::PoseStamped object_stamped_msg;
+    visualization_msgs::msg::MarkerArray object_marker_array_msg;
+
     // Object position
     Eigen::VectorXd objPos;
     // Reference frame
     Eigen::VectorXd refPos;
-
+    // Angles
+    Eigen::VectorXd angles;
 
     // For pose_callback()
     int resolution = 100;
     int radius = 50;
-    int i=0;
+    int id = 0;
+
     tf2::Quaternion quat;
     tf2::Quaternion quatOrigin;
     tf2::Quaternion quatObject;
+    tf2::Quaternion quatMue;
 
     float scale;
 
-    void pose_callback() { 
-        float sy = sqrt( (refPos(0)*refPos(0)) + (refPos(1)*refPos(1)) );
+    Eigen::VectorXd rotMat_to_angles(Eigen::VectorXd rotMat){
+        float sy = sqrt( (rotMat(0)*rotMat(0)) + (rotMat(1)*rotMat(1)) );
         bool singular = sy < 1e-6;
         float thetaX, thetaY, thetaZ;
 
         if(!singular){
-            thetaX = atan2(refPos(5),refPos(8));
-            thetaY = atan2(-refPos(2),sy);
-            thetaZ = -atan2(refPos(1), refPos(0));
+            thetaX = atan2(rotMat(5),rotMat(8));
+            thetaY = atan2(-rotMat(2),sy);
+            thetaZ = atan2(rotMat(1), rotMat(0));
         }else{
-            thetaX = atan2(refPos(3),refPos(0));
-            thetaY = atan2(-refPos(2),sy);
+            thetaX = atan2(rotMat(3),rotMat(0));
+            thetaY = atan2(-rotMat(2),sy);
             thetaZ = 0;
         }
 
-        //float thetaX = M_PI/4;
-        //float thetaY = M_PI/4;
-        //float thetaZ = M_PI/4;
+        Eigen::VectorXd angles = Eigen::VectorXd::Zero(3);
+        angles(0) = thetaX; angles(1) = thetaY; angles(2) = thetaZ;
 
+        return angles;
+    }         
+
+
+    void pose_callback() {
+
+        // Getting Angles
+        angles = rotMat_to_angles(refPos);
         // Reference of Camera poseStamped
-        quat.setRPY(thetaX, thetaY, thetaZ);
+        quat.setRPY(angles[0], angles[1], angles[2]);
         tf2::convert(quat, pose_stamped_msg.pose.orientation);
         pose_stamped_msg.pose.position.x = refPos(9);
         pose_stamped_msg.pose.position.y = refPos(10);
         pose_stamped_msg.pose.position.z = refPos(11);
 
-
         // Object tracking Marker
-        quatObject.setRPY(0, 0, 0);
-        tf2::convert(quatObject, object_marker_msg.pose.orientation);
-        object_marker_msg.pose.position.x = ((objPos(0) + objPos(3)) /2);
-        object_marker_msg.pose.position.y = ((objPos(1) + objPos(4)) /2);
-        object_marker_msg.pose.position.z = ((objPos(2) + objPos(5))/2);
-
-        //object_marker_msg.pose.position.x = objPos(0);
-        //object_marker_msg.pose.position.y = objPos(1);
-        //object_marker_msg.pose.position.z = objPos(2);
+        angles = rotMat_to_angles(objPos);
+        quatObject.setRPY(-angles[0], -angles[1], -angles[2]);
+        tf2::convert(quatObject, object_stamped_msg.pose.orientation);
+        object_stamped_msg.pose.position.x = objPos(9);
+        object_stamped_msg.pose.position.y = objPos(10);
+        object_stamped_msg.pose.position.z = objPos(11);
 
         // Origin
         quatOrigin.setRPY(0,0,0);
@@ -169,14 +166,64 @@ class ObjectTracking : public rclcpp::Node
         ref_stamped_msg.pose.position.x = 0;
         ref_stamped_msg.pose.position.y = 0;
         ref_stamped_msg.pose.position.z = 0;
+        std::cout<<"Afuera"<<std::endl;
 
-        // RCLCPP_INFO(this->get_logger(), "Ref: %f %f %f", refPos(9), refPos(10),refPos(11));
+        // OBJECT DETECTION (SILLAS Y MESAS)
+        // **** FOR DEMO PURPOSES ONLY I SWEAR ****
+        // If flag 1 or 2 -> object
+        if(objPos(12) != 0){
+            // Creating m   arker
+            visualization_msgs::msg::Marker marker;
+            double chair_color[4][4]{
+                {1,0,0,1},
+                    {0,1,0,1},
+                    {1,1,0,1},
+                    {0.1,0.1,0.1,1},
+            };
+            double table_color[4][4]{
+                {0,1,0,1},
+                    {0,1,0,1},
+                    {1,1,0,1},
+                    {0.1,0.1,0.1,1},
+            };
 
+            // Getting Angles
+            angles = rotMat_to_angles(objPos);
+            // Setting orientation
+            quatMue.setRPY(angles[0], angles[1], angles[2]);
+            tf2::convert(quatMue, marker.pose.orientation);
+
+            // Setting marker params
+            marker.header.frame_id = "world";
+            marker.action = 0;
+            marker.id = id;
+            id += 1;
+            marker.type = marker.CUBE;
+            marker.scale = geometry_msgs::build<geometry_msgs::msg::Vector3>().x(1.0).y(1.0).z(1.0); 
+            marker.pose.position.x = objPos(9);
+            marker.pose.position.y = objPos(10);
+            marker.pose.position.z = objPos(11);
+
+            if (objPos(12) == 2) {
+                marker.color = std_msgs::build<std_msgs::msg::ColorRGBA>().r(table_color[0][0]).g(table_color[0][1]).b(table_color[0][2]).a(table_color[0][3]);
+            }
+            if (objPos(12) == 2) {
+                marker.color = std_msgs::build<std_msgs::msg::ColorRGBA>().r(chair_color[0][0]).g(chair_color[0][1]).b(chair_color[0][2]).a(chair_color[0][3]);
+            }
+
+            // PUBLISH OBJECTS
+            object_marker_array_msg.markers.push_back(marker);
+            object_marker_array_publisher->publish(object_marker_array_msg);
+        }
+
+        // PUBLISH 
         pose_rviz_publisher->publish(pose_stamped_msg);
-        object_marker_publisher->publish(object_marker_msg);
+        object_rviz_publisher->publish(object_stamped_msg);
         ref_rviz_publisher->publish(ref_stamped_msg);
     }
 };
+
+
 
 int main(int argc, char * argv[])
 {

@@ -36,12 +36,15 @@ class ObjPos(Node):
         self.pos = POS(self.cam,2)
         self.Rc, self.Pc = self.pos.worldCal()
 
-        # POSICION DE OBJETO (ARUCO) EN EL MUNDO
+        # POSICION PUNTOS OBJETO EN EL MUNDO
         self.PB1 = 0
         self.PB2 = 0
 
+        # POSICION DE ARUCO EN EL MUNDO
+        self.aruPOS = np.zeros((4,1),np.float32)
+
         # ORIENTACION DE ARUCO EN EL MUNDO
-        self.aruORI = 0
+        self.aruORI = np.zeros((3,3),np.float32)
 
         # POSICION DE OBJETO
         self.OBJ = Float32MultiArray()
@@ -56,8 +59,9 @@ class ObjPos(Node):
 
     def show(self):
 
-        d = 0
-        PUV = 0
+        # d = 0
+        # PUV = 0
+        # aru_ROT = 0
 
         IMG = cv2.VideoCapture(0)
         while True:
@@ -74,12 +78,17 @@ class ObjPos(Node):
                 # CALCULAR ORIENTACION DE ARUCO EN EL MUNDO
                 self.aruORI = self.pos.aruOriToWorld(aru_ROT)
 
-                # CALCULAR POSICION DE PUNTOS DE ARUCO EN EL MUNDO
+                # POSICION DE PUNTOS DE ARUCO EN EL MUNDO
                 self.PB1 = self.pos.objCal(np.array([[PUV[0][0],PUV[0][1],1]]).T,d)
                 self.PB2 = self.pos.objCal(np.array([[PUV[1][0],PUV[1][1],1]]).T,d)
 
+                # CALCULAR POSICION DE ARUCO EN EL MUNDO
+                self.aruPOS = (self.PB1 + self.PB2)/2
+
             # PUBLICAR LISTA DE POSICIONES
-            self.OBJ.data = np.ravel(self.PB1[:-1]).tolist() + np.ravel(self.PB2[:-1]).tolist() + [self.aru.flag]
+            self.OBJ.data = self.aruORI[:,0].tolist() + self.aruORI[:,1].tolist() + \
+                            self.aruORI[:,2].tolist() + np.ravel(self.aruPOS[:-1]).tolist() + \
+                            [self.aru.flag]
             self.objPos_publisher.publish(self.OBJ)
 
             # PUBLICAR LISTA DE POSICIONES DE REFERENCIALES 
@@ -87,11 +96,11 @@ class ObjPos(Node):
                             self.Rc[:,2].tolist() + np.ravel(self.Pc[:-1]).tolist()
             self.refPos_publisher.publish(self.POS)
 
-
             cv2.imshow("Imagen",frame)
 
             k = cv2.waitKey(1)
 
+            # ******* FOR DEMO PURPOSES ONLY ********* 
             if(k == ord('q')):
                 break
             elif(k == ord('m')):

@@ -89,6 +89,7 @@ class POS:
     
 
     def aruOriToWorld(self,R_aru):
+        R_aru = cv2.Rodrigues(R_aru)[0]
         # DE REFERENCIAL DE CAMARA A REFRENCIAL DE ARUCO
         R = np.linalg.inv(R_aru) @ self.Rc
         return R

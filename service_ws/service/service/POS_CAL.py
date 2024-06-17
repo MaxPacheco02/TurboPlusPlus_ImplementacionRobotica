@@ -55,6 +55,7 @@ class CAM:
         for i in range(chessSize[0]-1,len(objp),chessSize[0]):
             TEMP = objp[i-(chessSize[0]-1):i+1,:] 
             objp[i-(chessSize[0]-1):i+1,:] = TEMP[::-1]
+            
             #  | y               #
             #  |                 #
             #  |                 #

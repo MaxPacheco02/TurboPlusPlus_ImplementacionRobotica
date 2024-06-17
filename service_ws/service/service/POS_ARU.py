@@ -74,7 +74,6 @@ class ARU:
 
                 self.PBUV[0] = cor[0][0]
                 self.PBUV[1] = cor[0][1]
-
                 self.aru_ROT = rvec
 
         return frame, self.PBUV, self.aru_ROT

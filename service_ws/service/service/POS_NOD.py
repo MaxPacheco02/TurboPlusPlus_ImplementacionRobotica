@@ -33,7 +33,7 @@ class ObjPos(Node):
         self.point = POINTS(self.aru.markerLength)
 
         # POSICION DE MUNDO Y CAMARA 
-        self.pos = POS(self.cam,2)
+        self.pos = POS(self.cam, 0)
         self.Rc, self.Pc = self.pos.worldCal()
 
         # POSICION PUNTOS OBJETO EN EL MUNDO
@@ -42,7 +42,6 @@ class ObjPos(Node):
 
         # POSICION DE ARUCO EN EL MUNDO
         self.aruPOS = np.zeros((4,1),np.float32)
-
         # ORIENTACION DE ARUCO EN EL MUNDO
         self.aruORI = np.zeros((3,3),np.float32)
 
@@ -64,6 +63,8 @@ class ObjPos(Node):
         # aru_ROT = 0
 
         IMG = cv2.VideoCapture(0)
+        IMG.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
+        IMG.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         while True:
             ret, frame = IMG.read()
             
@@ -97,6 +98,7 @@ class ObjPos(Node):
             self.refPos_publisher.publish(self.POS)
 
             cv2.imshow("Imagen",frame)
+
 
             k = cv2.waitKey(1)
 

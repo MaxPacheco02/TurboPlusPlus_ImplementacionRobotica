@@ -38,7 +38,7 @@ class ARU:
         self.aru_ROT = np.zeros((3,1),np.float32)
 
         # TAMANO DE ARUCO EN MM
-        self.markerLength = 81
+        self.markerLength = 150
 
         # DICCIONARIO DE ARUCO
         self.aruco_dict = self.ARUCO_DICT["DICT_4X4_50"]

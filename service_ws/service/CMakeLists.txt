@@ -13,9 +13,6 @@ find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(std_msgs REQUIRED)
 
-install(DIRECTORY
-    launch
-    DESTINATION share/${PROJECT_NAME})
 
 # CPP
 # INCLUDE CPP 'include' DIR
@@ -47,7 +44,6 @@ install(DIRECTORY resources/
 # install(DIRECTORY config/
 #   DESTINATION share/${PROJECT_NAME}/config
 # )
-
 
 
 if(BUILD_TESTING)

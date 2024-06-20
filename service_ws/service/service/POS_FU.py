@@ -20,7 +20,6 @@ class POS:
         # CONSTRUIR MATRIZ DE VALORES EXTRINSECOS P 4x4 (MATRIZ DE TRANSFORMACION HOMOGENEA)
         self.H = np.concatenate((np.concatenate((self.R , self.T), axis=1),[[0,0,0,1]]), axis=0)
 
-
         # PARA GRAFICAR [ARREGLADO] (YA NO SE OCUPA CAMBIAR SIGNOS)
         # ---------------------------
         # POSICION ORIGEN DE MUNDO
@@ -88,8 +87,11 @@ class POS:
         return PW
     
 
-    def aruOriToWorld(self,R_aru):
+    def aruOriToWorld(self,R_aru,T_aru):
+        T_aru = np.concatenate((T_aru,[[1]]),axis=0)
         R_aru = cv2.Rodrigues(R_aru)[0]
         # DE REFERENCIAL DE CAMARA A REFRENCIAL DE ARUCO
         R = np.linalg.inv(R_aru) @ self.Rc
-        return R
+        # TRASLACION DE ARUCO 
+        T = self.Pc - T_aru
+        return R, T

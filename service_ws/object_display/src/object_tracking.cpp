@@ -19,6 +19,8 @@
 #include <iostream>
 #include "std_msgs/msg/int32.hpp"
 
+#include <vector>
+
 using namespace std::chrono_literals;
 
 
@@ -37,12 +39,15 @@ class ObjectTracking : public rclcpp::Node
         // Variables
         scale = scale_param.as_double();
 
-        objPos = Eigen::VectorXd::Zero(13);
         refPos = Eigen::VectorXd::Zero(12);
+
+        objPos.resize(7);
+        for(int i = 0; i < 7; i++){
+            objPos[i] = Eigen::VectorXd::Zero(13);
+        }
 
         // Max Distance
         distanceMax = 290 * scale;
-
         
         // Subscribers
         ref_pos_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>(
@@ -55,19 +60,28 @@ class ObjectTracking : public rclcpp::Node
         obj_pos_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>(
             "obj_pos", 10, [this](const std_msgs::msg::Float32MultiArray::SharedPtr msg){
                 for(int i=0; i<int(msg->data.size()); i++){
-                    if(i < 12){
-                        objPos(i) = msg->data[i]*scale;
+                    // RCLCPP_INFO(this->get_logger(), "msg->data.size() %f",(float)msg->data.size());
+                    if((indexv == 0) || (indexv % 12 != 0)){
+                        objPos[countini](indexv) = msg->data[i]*scale;
+                        // RCLCPP_INFO(this->get_logger(), "indexv %f",(float)indexv);
+                        indexv++;
                     }else{
-                        objPos(i) = msg->data[i];
-                    }
-                    if (msg->data[12] > 0){
-                        curr = (int)msg->data[12];
-                    }
-                    if ( msg->data[12] == 0){
-                        curr = (int)msg->data[12];
-                        prev = curr;
+                        objPos[countini](indexv) = msg->data[i];
+                        // RCLCPP_INFO(this->get_logger(), "indexv %f",(float)indexv);
+                        countini++;
+                        countout++;
+                        indexv = 0;
+
+                        if (msg->data[i] > 0){
+                            curr = (int)msg->data[i];
+                        }
+                        if (msg->data[i] == 0){
+                            curr = (int)msg->data[i];
+                            prev = curr;
+                        }
                     }
                 }
+                countini = 0;
             }
         );
 
@@ -117,11 +131,17 @@ class ObjectTracking : public rclcpp::Node
     visualization_msgs::msg::MarkerArray object_marker_array_msg;
 
     // Object position
-    Eigen::VectorXd objPos;
+    std::vector<Eigen::VectorXd> objPos;
+    // std::vector<Eigen::VectorXd> objPos(6,Eigen::VectorXd::Zero(13));
     // Reference frame
     Eigen::VectorXd refPos;
     // Angles
     Eigen::VectorXd angles;
+
+    // Vector counter
+    int countini = 0;
+    int countout = -1;
+    int indexv = 0;
 
     // For pose_callback()
     int resolution = 100;
@@ -171,7 +191,7 @@ class ObjectTracking : public rclcpp::Node
             xP = object_stamped_msg.pose.position.x;
             yP = object_stamped_msg.pose.position.z;
             distance = sqrt( (xO-xP)*(xO-xP) +  (yO-yP)*(yO-yP));
-            RCLCPP_INFO(this->get_logger(), "Distance: %f, Distance Max: %f", distance, distanceMax);
+            // RCLCPP_INFO(this->get_logger(), "Distance: %f, Distance Max: %f", distance, distanceMax);
             if(distance < distanceMax) {
                 RCLCPP_ERROR(this->get_logger(), "Object %d near", i+1);
                 counter++;
@@ -189,22 +209,13 @@ class ObjectTracking : public rclcpp::Node
 
     void pose_callback() {
 
-        // Getting Angles
-        angles = rotMat_to_angles(refPos);
         // Reference of Camera poseStamped
+        angles = rotMat_to_angles(refPos);
         quat.setRPY(angles[0], angles[1], angles[2]);
         tf2::convert(quat, pose_stamped_msg.pose.orientation);
         pose_stamped_msg.pose.position.x = refPos(9);
         pose_stamped_msg.pose.position.y = refPos(10);
         pose_stamped_msg.pose.position.z = refPos(11);
-
-        // Object tracking Marker
-        angles = rotMat_to_angles(objPos);
-        quatObject.setRPY(-angles[0], -angles[1], -angles[2]);
-        tf2::convert(quatObject, object_stamped_msg.pose.orientation);
-        object_stamped_msg.pose.position.x = objPos(9);
-        object_stamped_msg.pose.position.y = objPos(10);
-        object_stamped_msg.pose.position.z = objPos(11);
 
         // Origin
         quatOrigin.setRPY(0,0,0);
@@ -212,62 +223,131 @@ class ObjectTracking : public rclcpp::Node
         ref_stamped_msg.pose.position.x = 0;
         ref_stamped_msg.pose.position.y = 0;
         ref_stamped_msg.pose.position.z = 0;
-        std::cout<<"Afuera"<<std::endl;
+
+
+        for(int i = 0; i < countout; i++){
+            RCLCPP_INFO(this->get_logger(), "FOR %f",(float)countout);
+            if(objPos[i](12) == 0.0){
+                // Object tracking Marker
+                angles = rotMat_to_angles(objPos[i]);
+                quatObject.setRPY(-angles[0], -angles[1], -angles[2]);
+                tf2::convert(quatObject, object_stamped_msg.pose.orientation);
+                object_stamped_msg.pose.position.x = -objPos[i](9);
+                object_stamped_msg.pose.position.y = objPos[i](10);
+                object_stamped_msg.pose.position.z = objPos[i](11);
+                
+                object_rviz_publisher->publish(object_stamped_msg);
+            }
+            
+            if(((objPos[i](12) == 1.0) || (objPos[i](12) == 2.0))){ 
+                // Creating marker
+                // RCLCPP_INFO(this->get_logger(), "KKKKKKKKKKKKK");
+                visualization_msgs::msg::Marker marker;
+                double chair_color[4][4]{
+                    {1,0,0,1},
+                        {0,1,0,1},
+                        {1,1,0,1},
+                        {0.1,0.1,0.1,1},
+                };
+                double table_color[4][4]{
+                    {0,1,0,1},
+                        {0,1,0,1},
+                        {1,1,0,1},
+                        {0.1,0.1,0.1,1},
+                };
+
+                // Getting Angles
+                angles = rotMat_to_angles(objPos[i]);
+                // Setting orientation
+                quatMue.setRPY(-angles[0], -angles[1], -angles[2]);
+                tf2::convert(quatMue, marker.pose.orientation);
+
+                // Setting marker params
+                marker.header.frame_id = "world";
+                marker.action = 0;
+                marker.id = (int)objPos[i](12);
+                // id += 1;
+                marker.type = marker.CUBE;
+                marker.pose.position.x = -objPos[i](9);
+                marker.pose.position.y = objPos[i](10);
+                marker.pose.position.z = objPos[i](11);
+
+                if (objPos[i](12) == 1.0) {
+                    marker.scale = geometry_msgs::build<geometry_msgs::msg::Vector3>().x(1.0).y(1.0).z(1.0); 
+                    marker.color = std_msgs::build<std_msgs::msg::ColorRGBA>().r(chair_color[0][0]).g(chair_color[0][1]).b(chair_color[0][2]).a(chair_color[0][3]);
+                }
+                if (objPos[i](12) == 2.0) {
+                    marker.scale = geometry_msgs::build<geometry_msgs::msg::Vector3>().x(3.0).y(1.0).z(1.0); 
+                    marker.color = std_msgs::build<std_msgs::msg::ColorRGBA>().r(table_color[0][0]).g(table_color[0][1]).b(table_color[0][2]).a(table_color[0][3]);
+                }
+
+                // PUBLISH OBJECTS
+                object_marker_array_msg.markers.push_back(marker);
+                object_marker_array_publisher->publish(object_marker_array_msg);
+                prev = curr;
+            }
+        }
+        countout = -1;
+
+
+        pose_rviz_publisher->publish(pose_stamped_msg);
+        ref_rviz_publisher->publish(ref_stamped_msg);
+
 
         // OBJECT DETECTION (SILLAS Y MESAS)
         // **** FOR DEMO PURPOSES ONLY I SWEAR ****
         // If flag 1 or 2 -> object
-        if(objPos(12) != 0 && prev == 0){
-            // Creating m   arker
-            visualization_msgs::msg::Marker marker;
-            double chair_color[4][4]{
-                {1,0,0,1},
-                    {0,1,0,1},
-                    {1,1,0,1},
-                    {0.1,0.1,0.1,1},
-            };
-            double table_color[4][4]{
-                {0,1,0,1},
-                    {0,1,0,1},
-                    {1,1,0,1},
-                    {0.1,0.1,0.1,1},
-            };
+        // if(objPos(12) != 1){
+        //     // Creating m   arker
+        //     visualization_msgs::msg::Marker marker;
+        //     double chair_color[4][4]{
+        //         {1,0,0,1},
+        //             {0,1,0,1},
+        //             {1,1,0,1},
+        //             {0.1,0.1,0.1,1},
+        //     };
+        //     double table_color[4][4]{
+        //         {0,1,0,1},
+        //             {0,1,0,1},
+        //             {1,1,0,1},
+        //             {0.1,0.1,0.1,1},
+        //     };
 
-            // Getting Angles
-            angles = rotMat_to_angles(objPos);
-            // Setting orientation
-            quatMue.setRPY(angles[0], angles[1], angles[2]);
-            tf2::convert(quatMue, marker.pose.orientation);
+        //     // Getting Angles
+        //     angles = rotMat_to_angles(objPos);
+        //     // Setting orientation
+        //     quatMue.setRPY(-angles[0], -angles[1], -angles[2]);
+        //     tf2::convert(quatMue, marker.pose.orientation);
 
-            // Setting marker params
-            marker.header.frame_id = "world";
-            marker.action = 0;
-            marker.id = id;
-            id += 1;
-            marker.type = marker.CUBE;
-            marker.pose.position.x = objPos(9);
-            marker.pose.position.y = objPos(10);
-            marker.pose.position.z = objPos(11);
+        //     // Setting marker params
+        //     marker.header.frame_id = "world";
+        //     marker.action = 0;
+        //     marker.id = id;
+        //     id += 1;
+        //     marker.type = marker.CUBE;
+        //     marker.pose.position.x = -objPos(9);
+        //     marker.pose.position.y = objPos(10);
+        //     marker.pose.position.z = objPos(11);
 
-            if (objPos(12) == 1) {
-                marker.scale = geometry_msgs::build<geometry_msgs::msg::Vector3>().x(1.0).y(1.0).z(1.0); 
-                marker.color = std_msgs::build<std_msgs::msg::ColorRGBA>().r(chair_color[0][0]).g(chair_color[0][1]).b(chair_color[0][2]).a(chair_color[0][3]);
-            }
-            if (objPos(12) == 2) {
-                marker.scale = geometry_msgs::build<geometry_msgs::msg::Vector3>().x(3.0).y(1.0).z(1.0); 
-                marker.color = std_msgs::build<std_msgs::msg::ColorRGBA>().r(table_color[0][0]).g(table_color[0][1]).b(table_color[0][2]).a(table_color[0][3]);
-            }
+        //     if (objPos(12) == 1) {
+        //         marker.scale = geometry_msgs::build<geometry_msgs::msg::Vector3>().x(1.0).y(1.0).z(1.0); 
+        //         marker.color = std_msgs::build<std_msgs::msg::ColorRGBA>().r(chair_color[0][0]).g(chair_color[0][1]).b(chair_color[0][2]).a(chair_color[0][3]);
+        //     }
+        //     if (objPos(12) == 2) {
+        //         marker.scale = geometry_msgs::build<geometry_msgs::msg::Vector3>().x(3.0).y(1.0).z(1.0); 
+        //         marker.color = std_msgs::build<std_msgs::msg::ColorRGBA>().r(table_color[0][0]).g(table_color[0][1]).b(table_color[0][2]).a(table_color[0][3]);
+        //     }
 
-            // PUBLISH OBJECTS
-            object_marker_array_msg.markers.push_back(marker);
-            object_marker_array_publisher->publish(object_marker_array_msg);
-            prev = curr;
-        }
+        //     // PUBLISH OBJECTS
+        //     object_marker_array_msg.markers.push_back(marker);
+        //     object_marker_array_publisher->publish(object_marker_array_msg);
+        //     // prev = curr;
+        // }
 
-        // PUBLISH 
-        pose_rviz_publisher->publish(pose_stamped_msg);
-        object_rviz_publisher->publish(object_stamped_msg);
-        ref_rviz_publisher->publish(ref_stamped_msg);
+        // // PUBLISH 
+        // pose_rviz_publisher->publish(pose_stamped_msg);
+        // object_rviz_publisher->publish(object_stamped_msg);
+        // ref_rviz_publisher->publish(ref_stamped_msg);
     }
 };
 

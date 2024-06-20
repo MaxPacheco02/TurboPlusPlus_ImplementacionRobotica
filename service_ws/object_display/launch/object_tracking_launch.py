@@ -46,20 +46,20 @@ def generate_launch_description():
     )
 
 
-    obj_pos_node = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            PathJoinSubstitution([
-                FindPackageShare('service'),
-                'launch',
-                'obj_pos_launch.py'
-            ])
-        ]),
-    )
+    # obj_pos_node = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource([
+    #         PathJoinSubstitution([
+    #             FindPackageShare('object_display'),
+    #             'launch',
+    #             'obj_pos_launch.py'
+    #         ])
+    #     ]),
+    # )
 
 
     return LaunchDescription([
         alarm_node,
-        obj_pos_node,
+        # obj_pos_node,
         object_tracking_node,
         rviz_node
     ])

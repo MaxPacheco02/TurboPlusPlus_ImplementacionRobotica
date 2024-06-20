@@ -46,9 +46,7 @@ class ARU:
         # DICCIONARIO DE ARUCO
         self.aruco_dict = self.ARUCO_DICT["DICT_4X4_50"]
 
-        # LISTA DE ARUCOS
-        self.aru_rot_list = []
-        self.aru_tra_list = []
+        # DICCIONARIO DE ARUCO 
 
         # CORNERS EN EL ARUCO, CON RESPECTO AL CENTRO
         self.objp = np.array([[-self.markerLength/2, self.markerLength/2,  0],
@@ -61,8 +59,6 @@ class ARU:
 
 
     def pose_estimation(self, frame, matrix_coefficients, distortion_coefficients):
-        self.aru_rot_list.clear()
-        self.aru_tra_list.clear()
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         aruco_dict = cv2.aruco.getPredefinedDictionary(self.aruco_dict)
         parameters = cv2.aruco.DetectorParameters()
@@ -75,23 +71,16 @@ class ARU:
         if len(corners) > 0:
             for i in range(0, len(ids)):
                 _, rvec, tvec = cv2.solvePnP(self.objp, corners[i], matrix_coefficients, distortion_coefficients)
-                # cor = corners[i]
+                cor = corners[i]
                 
                 cv2.aruco.drawDetectedMarkers(frame, corners, ids) 
                 cv2.drawFrameAxes(frame, matrix_coefficients, distortion_coefficients, rvec, tvec, self.markerLength*0.4,4)  
 
-                # self.PBUV[0] = cor[0][0]
-                # self.PBUV[1] = cor[0][1]
-
-
+                self.PBUV[0] = cor[0][0]
+                self.PBUV[1] = cor[0][1]
                 self.aru_ROT = rvec
                 self.aru_TRA = tvec
-                self.aru_rot_list.append(self.aru_ROT)
-                self.aru_tra_list.append(self.aru_TRA)
-        else:
-            ids = []
 
-
-        return frame, self.aru_rot_list, self.aru_tra_list, ids
+        return frame, self.PBUV, self.aru_ROT, self.aru_TRA
     
             

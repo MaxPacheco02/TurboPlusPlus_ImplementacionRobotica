@@ -164,7 +164,7 @@ class DottedDetection : public rclcpp::Node
       std::vector<std::array<int, 3>> windows_pure;
       
       int n = 15;
-      int limits[2]{10, 48};
+      int limits[2]{8, 55};
       for(int i = 0 ; i < n - 1 ; i++){
         windows.push_back(pure_ring(mat, i+1, n, limits));
       }
@@ -195,7 +195,7 @@ class DottedDetection : public rclcpp::Node
 
       cv::Mat pure_img = cv::Mat::zeros(cv::Size(mat.cols, mat.rows), CV_8U);
       for(int i = 0 ; i < windows_pure.size() ; i++){
-        if(windows_pure[i][2] > n * 0.8){
+        if(windows_pure[i][2] > n * 0.3){
           // std::cout << "pure window in " << windows_pure[i][0] << " , " << 
           //   windows_pure[i][1] << " , " << windows_pure[i][2] << std::endl;
           //   cv::Rect rect(0,0,mat.cols/2,mat.rows/2);

@@ -51,6 +51,9 @@ class CameraView : public rclcpp::Node
         rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr signal_publisher_image;
         rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr dotted_publisher_image;
 
+        // Subscribers
+        rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr frame_subscriber;
+
         // Variables
         cv::Mat frame;
         cv::Mat frame_resized;
@@ -58,9 +61,11 @@ class CameraView : public rclcpp::Node
         cv::Size frame_size;
         cv::Rect floor_r, signal_r, dotted_r;
         std::vector<uchar> dotted_img, floor_img, signal_img;
+        cv::VideoWriter video;
 
         cv::VideoCapture cap;
         size_t count_;
+        std::vector<uchar> buff_img;
 
         // Msg
         sensor_msgs::msg::CompressedImage floorFrame_msg, signalFrame_msg, dottedFrame_msg;

@@ -22,9 +22,12 @@ class LineDetection : public rclcpp::Node
   public:
     LineDetection() : Node("line_detection") {
         error_pub_ = this->create_publisher<std_msgs::msg::Int32>("error", 10);
-        frame_sub_ = this->create_subscription<sensor_msgs::msg::CompressedImage>("dotted_frame", 10, 
+        processed_frame_pub_ = this->create_publisher<sensor_msgs::msg::CompressedImage>("/line_detection_processed_frame", 10);
+        frame_sub_ = this->create_subscription<sensor_msgs::msg::CompressedImage>("floor_frame", 10, 
                         std::bind(&LineDetection::subscriber_callback, this, _1));
         RCLCPP_INFO(this->get_logger(), "Node[line_detection_node] initialized =)");
+
+        processed_frame_msg.format=".jpeg";
     }
 
   private:
@@ -32,23 +35,29 @@ class LineDetection : public rclcpp::Node
     // Variables
     int error{0};
     cv::Mat img;
+    cv::Mat img_org;
     cv::Mat img_weighted;
     cv::Mat img_gray;
     cv::Mat frames;
     cv::Mat thresh;
     cv::Mat thresh_pure;
     
+    std::vector<uchar> processed_img;
+
     // Edit image
     int min_thresh{143};
     int chosen_idx{0};
-    int brightness{-277};
-    float contrast{3.5};
+    int brightness{-454};
+    // int brightness{-644};
+    float contrast{4.5};
     int low_canny{50};
     int high_canny{150};
 
     rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr error_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr processed_frame_pub_;
     rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr frame_sub_;
 
+    sensor_msgs::msg::CompressedImage processed_frame_msg;
     std_msgs::msg::Int32 error_msg;
 
     void subscriber_callback(const sensor_msgs::msg::CompressedImage & msg) {
@@ -60,15 +69,16 @@ class LineDetection : public rclcpp::Node
         RCLCPP_ERROR(this->get_logger(), "[ERROR] NULL Buffer!!!");
       }
       
-      int w = img.cols;
-      int h = img.rows;
-      // resize(img, img, cv::Size(w, h), cv::INTER_LINEAR);
+      int w = img.cols*5;
+      int h = img.rows*5;
+      resize(img, img, cv::Size(w, h), cv::INTER_LINEAR);
 
       // Cutting image 
       int x_c = round(w/2);
-      int x_t = round(w*.3);
+      int x_t = round(w*.2);
       cv::Rect rect( x_c - x_t, 0, x_t * 2, img.rows);
       img = img(rect).clone();
+      img_org = img.clone();
 
       // Blending image
       addWeighted(img, contrast, cv::Mat::zeros(img.size().height, img.size().width, img.type()) , 0, brightness, img_weighted);
@@ -95,8 +105,13 @@ class LineDetection : public rclcpp::Node
       error_msg.data = (cx - thresh_pure.cols/2) * 5.;
       error_pub_->publish(error_msg);
 
-      // frames = cv2_conc(std::vector<cv::Mat>{img, img_weighted, thresh, thresh_pure});
+      cv::imencode(".jpeg", img, processed_img);
+      processed_frame_msg.data=processed_img;
+      processed_frame_pub_->publish(processed_frame_msg);
+
+      // frames = cv2_conc(std::vector<cv::Mat>{img_org, img, img_weighted, thresh, thresh_pure});
       // cv::imshow("Weighted",frames);
+      // cv::imshow("Weighted",img);
       // cv::waitKey(1);
     }
 
@@ -167,8 +182,8 @@ class LineDetection : public rclcpp::Node
     cv::Mat pure_thresh(cv::Mat mat){
       std::vector<std::vector<std::array<int, 3>>> windows;
       std::vector<std::array<int, 3>> windows_pure;
-      int n = 15;
-      int limits[2]{8, 35};
+      int n = 30;
+      int limits[2]{30, 300};
       for(int i = 0 ; i < n - 1 ; i++){
         windows.push_back(pure_ring(mat, i+1, n, limits));
       }
@@ -199,7 +214,7 @@ class LineDetection : public rclcpp::Node
 
       cv::Mat pure_img = cv::Mat::zeros(cv::Size(mat.cols, mat.rows), CV_8U);
       for(int i = 0 ; i < windows_pure.size() ; i++){
-        if(windows_pure[i][2] > n * 0.7){
+        if(windows_pure[i][2] > n * 0.2){
           // std::cout << "pure window in " << windows_pure[i][0] << " , " << 
             // windows_pure[i][1] << " , " << windows_pure[i][2] << std::endl;
             // cv::Rect rect(0,0,mat.cols/2,mat.rows/2);

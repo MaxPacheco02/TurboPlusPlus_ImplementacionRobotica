@@ -26,7 +26,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        # camera_node,
+        camera_node,
         line_detection_node,
         dotted_detection_node,
         signal_detection_node,

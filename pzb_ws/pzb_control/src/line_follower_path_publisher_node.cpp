@@ -42,7 +42,7 @@ public:
 
         lf_err_sub_ = this->create_subscription<std_msgs::msg::Int32>(
             "/error", 10,
-            [this](const std_msgs::msg::Int32 &msg){ lf_err = std::clamp(-msg.data / 1000.0, -0.5, 0.5); });
+            [this](const std_msgs::msg::Int32 &msg){ lf_err = std::clamp(-msg.data / 1000.0, -2., 2.); });
 
         op_cmd_sub_ = this->create_subscription<geometry_msgs::msg::Vector3>(
             "/op_cmd", 10,
@@ -109,9 +109,10 @@ private:
         } else {
             RCLCPP_INFO(get_logger(), "WAITING DOTTED CD %d", dotted_cooldown);
         }
+            RCLCPP_INFO(get_logger(), "STOP COOLDOWN %d", stop_cooldown);
 
-        div = (1 + std::fabs(lf_err) * 8.);
-        ahead = ahead_perm / (div*div*div);
+        div = (1 + std::fabs(lf_err) * 4.);
+        ahead = ahead_perm / (div*div);
         
         if(auto_mode){
             if(stop_cooldown > 100){
@@ -208,17 +209,15 @@ private:
             case pzb_msgs::msg::Signal::LEFT:
                 v_tmp << 0.1, 0.05, 0.;
                 vs.push_back(v_tmp);
-                v_tmp << 0.24, 0.1, 0.;
+                v_tmp << 0.9, 0.1, 0.;
                 vs.push_back(v_tmp);
-                v_tmp << 0.27, 0.25, 0.;
+                v_tmp << 1., 2., 0.;
                 vs.push_back(v_tmp);
                 break;
             case pzb_msgs::msg::Signal::CIRCLE:
                 v_tmp << 0.2, -0.05, 0.;
                 vs.push_back(v_tmp);
-                v_tmp << 0.2, -0.1, 0.;
-                vs.push_back(v_tmp);
-                v_tmp << 0.26, -0.3, 0.;
+                v_tmp << 1., -2., 0.;
                 vs.push_back(v_tmp);
                 break;
             case pzb_msgs::msg::Signal::UP:

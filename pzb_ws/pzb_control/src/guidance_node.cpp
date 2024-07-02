@@ -184,9 +184,9 @@ private:
             controller.saturateManipulation(get_angle_diff(psi_d, this->pose.z));
             ang_vel_d = -controller.u_;
 
-            double divid = (1. + std::fabs(ang_vel_d) * 0.3);
+            double divid = (1. + std::fabs(ang_vel_d) * 0.9);
 
-            vel_d /= (divid*divid);
+            vel_d /= (divid*divid*divid);
 
             // if(std::fabs(ang_vel_d) > 0.1)
             //     vel_d/=0.7;

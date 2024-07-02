@@ -38,8 +38,8 @@ def generate_launch_description():
         # Comment remappings for closed loop (REAL LIFE)
         # Include remappings for open loop (SIMULATIONS AND TESTING)
         remappings=[
-            # ('/VelocityEncL', '/VelocitySetL'),
-            # ('/VelocityEncR', '/VelocitySetR'),
+            ('/VelocityEncL', '/VelocitySetL'),
+            ('/VelocityEncR', '/VelocitySetR'),
         ],
     )
 
@@ -83,11 +83,11 @@ def generate_launch_description():
     return LaunchDescription([
         state_node,
         guidance_node,
-        rviz_node,
+        # rviz_node,
         line_follower_path_publisher_node,
         vision_launch,
         # pzb_teleop_node, # NO AQUI, POR VENTANA APARTE JE
 
         # path_publisher_node,
-        # foxglove_bridge,
+        foxglove_bridge,
     ])

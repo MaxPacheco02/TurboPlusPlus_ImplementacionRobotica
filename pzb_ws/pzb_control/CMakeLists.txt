@@ -58,6 +58,7 @@ ament_target_dependencies(line_follower_path_publisher_node ${DEPENDENCIES})
 install(PROGRAMS
 scripts/path_publisher_node.py
 scripts/pzb_teleop_node.py
+scripts/pzb_teleop_low_level_node.py
 DESTINATION lib/${PROJECT_NAME}
 )
 

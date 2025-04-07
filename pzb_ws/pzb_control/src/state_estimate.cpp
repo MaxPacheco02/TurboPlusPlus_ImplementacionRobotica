@@ -24,6 +24,8 @@
 #include "nav_msgs/msg/path.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 
+#include "sensor_msgs/msg/joint_state.hpp"
+
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include "tf2_ros/transform_listener.h"
@@ -47,7 +49,7 @@ public:
         cmd_vel_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
             "/cmd_vel", rclcpp::QoS(rclcpp::KeepLast(10)).best_effort().durability_volatile(),
             [this](const geometry_msgs::msg::Twist &msg){
-                update_xidot_cmdvel(msg.linear.x, msg.angular.z);
+                update_xid_params_cmdvel(msg.linear.x, msg.angular.z);
             });
 
         l_enc_sub_ = this->create_subscription<std_msgs::msg::Float32>(
@@ -59,7 +61,7 @@ public:
                     q1.pop();
                 w1 = average(q1);
                 w1_msg.data = w1;
-                update_xidot_ws(w1, w2);
+                update_xid_params_ws(w1, w2);
             });
 
         r_enc_sub_ = this->create_subscription<std_msgs::msg::Float32>(
@@ -71,7 +73,7 @@ public:
                     q2.pop();
                 w2 = average(q2);
                 w2_msg.data = w2;
-                update_xidot_ws(w1, w2);
+                update_xid_params_ws(w1, w2);
             });
 
         w1_smooth_pub_ = this->create_publisher<std_msgs::msg::Float32>("/w1_smooth", 10);
@@ -79,6 +81,7 @@ public:
         pose_pub_ = this->create_publisher<geometry_msgs::msg::Vector3>("/pzb_pose", 10);
         vel_pub_ = this->create_publisher<geometry_msgs::msg::Vector3>("/pzb_vel", 10);
         odometry_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/pzb/odom", 10);
+        joint_state_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/joint_states", 10);
 
         updateTimer =
             this->create_wall_timer(10ms, std::bind(&StateEstimateNode::update, this));
@@ -88,6 +91,13 @@ public:
 
         pose_stamped_msg.header.frame_id = "odom";
         odometry_msg.header.frame_id = "odom";
+        joint_state_msg.header.frame_id = "odom";
+
+        joint_state_msg.name.push_back("left_wheel_joint");
+        joint_state_msg.name.push_back("right_wheel_joint");
+
+        joint_state_msg.position.push_back(0.0);
+        joint_state_msg.position.push_back(0.0);
     }
 
 private:
@@ -98,6 +108,7 @@ private:
     rclcpp::Publisher<geometry_msgs::msg::Vector3>::SharedPtr pose_pub_, vel_pub_;
     rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr w1_smooth_pub_, w2_smooth_pub_;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odometry_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub_;
 
     rclcpp::TimerBase::SharedPtr updateTimer;
 
@@ -108,9 +119,13 @@ private:
 
     nav_msgs::msg::Odometry odometry_msg;
 
+    sensor_msgs::msg::JointState joint_state_msg;
+
     tf2::Quaternion quat;
 
     double w1{0.0}, w2{0.0};
+    double twist_x{0.0}, twist_z{0.0};
+    double theta_l{0.0}, theta_r{0.0};
 
     const double r{0.05}, l{0.08}, dt{0.01};
 
@@ -122,7 +137,12 @@ private:
     std::queue<double> q1, q2;
     int q_length{10};
 
-    void update() {       
+    void update() {      
+        
+        xi_dot << 
+            twist_x* cos(xi(2)),
+            twist_x* sin(xi(2)),
+            twist_z;
         
         xi_dot(2) /= angle_ponder;
 
@@ -146,11 +166,19 @@ private:
         odometry_msg.pose.pose.position.y = xi(1);
         tf2::convert(quat, odometry_msg.pose.pose.orientation);
 
+        theta_l -= w1*dt;
+        theta_r += w2*dt;
+
+        joint_state_msg.header.stamp = this->get_clock()->now();
+        joint_state_msg.position[1] = theta_l;
+        joint_state_msg.position[0] = theta_r;
+
         pose_pub_->publish(pose_msg);
         vel_pub_->publish(vel_msg);
         odometry_pub_->publish(odometry_msg);
         w1_smooth_pub_->publish(w1_msg);
         w2_smooth_pub_->publish(w2_msg);
+        joint_state_pub_->publish(joint_state_msg);
     }
 
     double average(std::queue<double> q){
@@ -166,20 +194,19 @@ private:
             return 0;
     }
 
-    // Obtain velocity vector with Twist msg
-    void update_xidot_cmdvel(double lin_x, double ang_z){
-        xi_dot << 
-            lin_x * cos(xi(2)),
-            lin_x * sin(xi(2)),
-            ang_z;
+    // Obtain velocity vector params with Twist msg
+    void update_xid_params_cmdvel(double lin_x, double ang_z){
+        twist_x = lin_x;
+        twist_z = ang_z;
+
+        w1 = (lin_x - ang_z*l)/r;
+        w2 = (lin_x + ang_z*l)/r;
     }
 
-    // Obtain velocity vector with wheels' ang. vel
-    void update_xidot_ws(double w_l, double w_r){
-        xi_dot << 
-            (r/2) * (w1 + w2) * cos(xi(2)),
-            (r/2) * (w1 + w2) * sin(xi(2)),
-            (r/(2*l)) * (w2 - w1);
+    // Obtain velocity vector params with wheels' ang. vel
+    void update_xid_params_ws(double w_l, double w_r){
+        twist_x = (r/2) * (w_l + w_r);
+        twist_z = (r/(2*l)) * (w_r - w_l);
     }
 
 };

@@ -25,8 +25,8 @@ q/z : auto/teleop op. mode
 CTRL-C to quit
 """
 
-x_vel = 0.3
-z_vel = 0.5
+x_vel = 0.4
+z_vel = 1.5
 
 moveBindings = {
     'i': (x_vel, 0.),

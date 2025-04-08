@@ -95,7 +95,9 @@ public:
 
         joint_state_msg.name.push_back("left_wheel_joint");
         joint_state_msg.name.push_back("right_wheel_joint");
+        joint_state_msg.name.push_back("lidar_joint");
 
+        joint_state_msg.position.push_back(0.0);
         joint_state_msg.position.push_back(0.0);
         joint_state_msg.position.push_back(0.0);
     }
@@ -125,7 +127,7 @@ private:
 
     double w1{0.0}, w2{0.0};
     double twist_x{0.0}, twist_z{0.0};
-    double theta_l{0.0}, theta_r{0.0};
+    double theta_l{0.0}, theta_r{0.0}, theta_lidar{0.0};
 
     const double r{0.05}, l{0.08}, dt{0.01};
 
@@ -169,9 +171,12 @@ private:
         theta_l -= w1*dt;
         theta_r += w2*dt;
 
+        theta_lidar += 10.0*dt;
+
         joint_state_msg.header.stamp = this->get_clock()->now();
         joint_state_msg.position[1] = theta_l;
         joint_state_msg.position[0] = theta_r;
+        joint_state_msg.position[2] = theta_lidar;
 
         pose_pub_->publish(pose_msg);
         vel_pub_->publish(vel_msg);

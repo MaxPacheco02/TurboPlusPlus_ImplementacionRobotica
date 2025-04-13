@@ -78,8 +78,8 @@ public:
 
         w1_smooth_pub_ = this->create_publisher<std_msgs::msg::Float32>("/w1_smooth", 10);
         w2_smooth_pub_ = this->create_publisher<std_msgs::msg::Float32>("/w2_smooth", 10);
-        pose_pub_ = this->create_publisher<geometry_msgs::msg::Vector3>("/pzb_pose", 10);
-        vel_pub_ = this->create_publisher<geometry_msgs::msg::Vector3>("/pzb_vel", 10);
+        pose_pub_ = this->create_publisher<geometry_msgs::msg::Vector3>("/pzb/pose", 10);
+        vel_pub_ = this->create_publisher<geometry_msgs::msg::Vector3>("/pzb/vel", 10);
         odometry_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/pzb/odom", 10);
         joint_state_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/joint_states", 10);
 

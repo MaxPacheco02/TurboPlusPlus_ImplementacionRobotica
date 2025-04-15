@@ -168,6 +168,9 @@ private:
         odometry_msg.pose.pose.position.y = xi(1);
         tf2::convert(quat, odometry_msg.pose.pose.orientation);
 
+        odometry_msg.twist.twist.linear.x = twist_x;
+        odometry_msg.twist.twist.angular.z = twist_z;
+
         theta_l -= w1*dt;
         theta_r += w2*dt;
 

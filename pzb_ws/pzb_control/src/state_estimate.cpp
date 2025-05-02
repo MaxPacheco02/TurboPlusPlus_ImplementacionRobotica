@@ -76,8 +76,8 @@ public:
                 update_xid_params_ws(w1, w2);
             });
 
-        w1_smooth_pub_ = this->create_publisher<std_msgs::msg::Float32>("/w1_smooth", 10);
-        w2_smooth_pub_ = this->create_publisher<std_msgs::msg::Float32>("/w2_smooth", 10);
+        w1_smooth_pub_ = this->create_publisher<std_msgs::msg::Float32>("/w_l", 10);
+        w2_smooth_pub_ = this->create_publisher<std_msgs::msg::Float32>("/w_r", 10);
         pose_pub_ = this->create_publisher<geometry_msgs::msg::Vector3>("/pzb/pose", 10);
         vel_pub_ = this->create_publisher<geometry_msgs::msg::Vector3>("/pzb/vel", 10);
         odometry_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/pzb/odom", 10);
@@ -209,6 +209,9 @@ private:
 
         w1 = (lin_x - ang_z*l)/r;
         w2 = (lin_x + ang_z*l)/r;
+
+        w1_msg.data = w1;
+        w2_msg.data = w2;
     }
 
     // Obtain velocity vector params with wheels' ang. vel

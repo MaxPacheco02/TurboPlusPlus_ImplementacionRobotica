@@ -35,7 +35,13 @@ def generate_launch_description():
             ('/VelocityEncR', '/VelocitySetR'),
         ],
     )
+    
+    dead_reckoning = Node(
+        package="pzb_localization",
+        executable="dead_reckoning",
+    )
 
     return LaunchDescription([
         state_node,
+        dead_reckoning,
     ])

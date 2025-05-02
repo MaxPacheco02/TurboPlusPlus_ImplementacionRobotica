@@ -7,32 +7,32 @@
 class PID
 {
     public:
-        float sample_time_;
+        double sample_time_;
         
-        float error_;
-        float prev_error_;
+        double error_;
+        double prev_error_;
 
-        float k_p_;
-        float k_i_;
-        float k_d_;
+        double k_p_;
+        double k_i_;
+        double k_d_;
 
-        float U_MIN_;
-        float U_MAX_;
+        double U_MIN_;
+        double U_MAX_;
         
-        float u_;
-        float chi1_d_;
+        double u_;
+        double chi1_d_;
 
         // May even be usefull to create another constructor without u_max, as when PID is FBLinearized, the FBLin
         // base class already saturates the signals
         PID();
-        PID(float sample_time, float k_p, float k_i, float k_d, float u_max, float u_min);
+        PID(double sample_time, double k_p, double k_i, double k_d, double u_max, double u_min);
         
-        void updateReferences(float chi1_d);
-        void calculateManipulation(float chi1);
+        void updateReferences(double chi1_d);
+        void calculateManipulation(double chi1);
         
         // Saturate manipulation function is intended to be used in applications where a FBLin PID is not required,
         // as FBLin base classes already saturate the control signals
-        void saturateManipulation(float chi1);
+        void saturateManipulation(double chi1);
 };
 
 #endif

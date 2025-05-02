@@ -1,3 +1,11 @@
+pid_guidance:
+  ros__parameters:
+    wheel_relation: 1.0
+    KP: 0.1
+    KI: 0.05
+    KD: 0.001
+    u_max: 1.
+    u_min: -1.
 guidance_node:
   ros__parameters:
     sides: 4

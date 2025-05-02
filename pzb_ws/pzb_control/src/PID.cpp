@@ -1,4 +1,5 @@
 #include "PID.h"
+#include "algorithm"
 
 PID::PID()
 {
@@ -17,7 +18,7 @@ PID::PID()
 
 }
 
-PID::PID(float sample_time, float k_p, float k_i, float k_d, float u_max, float u_min)
+PID::PID(double sample_time, double k_p, double k_i, double k_d, double u_max, double u_min)
 {
     sample_time_    = sample_time;
     k_p_            = k_p;
@@ -33,16 +34,16 @@ PID::PID(float sample_time, float k_p, float k_i, float k_d, float u_max, float 
     U_MIN_ = u_min;
 }
 
-void PID::updateReferences(float chi1_d)
+void PID::updateReferences(double chi1_d)
 {
     chi1_d_ = chi1_d;
 }
 
-void PID::calculateManipulation(float chi1)
+void PID::calculateManipulation(double chi1)
 {
-    float error_d;
-    float error_i;
-    float u;
+    double error_d;
+    double error_i;
+    double u;
 
     prev_error_    = error_;
     error_         = chi1_d_ - chi1;
@@ -52,13 +53,12 @@ void PID::calculateManipulation(float chi1)
 
     u  = k_p_ * error_ + k_i_ * error_i + k_d_ * error_d;
                                                                
-    if(!isnan(u) || u != 0.0)
+    if(!isnan(u))
         u_ = u;
 }
 
-void PID::saturateManipulation(float chi1)
+void PID::saturateManipulation(double chi1)
 {
     calculateManipulation(chi1);
-    u_ = abs(u_) > U_MAX_ ? u_ / abs(u_) * U_MAX_ : u_;
-    u_ = u_ < U_MIN_ ? U_MIN_ : u_;
+    u_ = std::clamp(u_, U_MIN_, U_MAX_);
 }

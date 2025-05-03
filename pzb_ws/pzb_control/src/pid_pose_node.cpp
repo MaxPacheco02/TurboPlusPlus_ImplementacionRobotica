@@ -49,7 +49,7 @@ struct Error
 class PIDGuidance : public rclcpp::Node
 {
 public:
-    PIDGuidance() : Node("pid_guidance")
+    PIDGuidance() : Node("pid_pose_node")
     {
         using namespace std::placeholders;
 
@@ -65,17 +65,17 @@ public:
         u_min = this->get_parameter("u_min").as_double();
 
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-            "/odom", 10,
+            "odom", 10,
             [this](const nav_msgs::msg::Odometry &msg)
             { this->pose = msg.pose.pose; });
 
         goal_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-            "/goal_pose", 10,
+            "goal_pose", 10,
             [this](const geometry_msgs::msg::PoseStamped &msg)
             { goal_pose = msg.pose; });
 
         // path_sub_ = this->create_subscription<nav_msgs::msg::Path>(
-        //     "/pzb/path_to_follow", 10,
+        //     "pzb/path_to_follow", 10,
         //     [this](const nav_msgs::msg::Path &msg) {
         //         if(!same_msg(wp_list, msg)){
         //             // RCLCPP_INFO(get_logger(), "new wp!");
@@ -84,7 +84,7 @@ public:
         //         wp_list = get_wp_list(msg);
         //     });
 
-        cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+        cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
 
         updateTimer =
             this->create_wall_timer(10ms, std::bind(&PIDGuidance::update, this));

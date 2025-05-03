@@ -54,11 +54,11 @@ public:
         u_min = this->get_parameter("u_min").as_double();
 
         pose_sub_ = this->create_subscription<geometry_msgs::msg::Vector3>(
-            "/pzb_pose", 10,
+            "pzb_pose", 10,
             [this](const geometry_msgs::msg::Vector3 &msg){ this->pose = msg; });
 
         signal_sub_ = this->create_subscription<pzb_msgs::msg::Signal>(
-            "/signal_detected", 10,
+            "signal_detected", 10,
             [this](const pzb_msgs::msg::Signal &msg){ 
                 switch(msg.signal){
                     case pzb_msgs::msg::Signal::NONE:
@@ -80,7 +80,7 @@ public:
             });
 
         path_sub_ = this->create_subscription<nav_msgs::msg::Path>(
-            "/pzb/path_to_follow", 10,
+            "pzb/path_to_follow", 10,
             [this](const nav_msgs::msg::Path &msg) { 
                 if(!same_msg(wp_list, msg)){
                     // RCLCPP_INFO(get_logger(), "new wp!");
@@ -89,9 +89,9 @@ public:
                 wp_list = get_wp_list(msg); 
             });
 
-        w1_des_pub_ = this->create_publisher<std_msgs::msg::Float32>("/VelocitySetL", 10);
-        w2_des_pub_ = this->create_publisher<std_msgs::msg::Float32>("/VelocitySetR", 10);
-        cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+        w1_des_pub_ = this->create_publisher<std_msgs::msg::Float32>("VelocitySetL", 10);
+        w2_des_pub_ = this->create_publisher<std_msgs::msg::Float32>("VelocitySetR", 10);
+        cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
 
         start_srv = this->create_service<std_srvs::srv::Empty>("pzb_start", std::bind(&GuidanceNode::pzb_start, this, _1, _2));
         stop_srv = this->create_service<std_srvs::srv::Empty>("pzb_stop", std::bind(&GuidanceNode::pzb_stop, this, _1, _2));

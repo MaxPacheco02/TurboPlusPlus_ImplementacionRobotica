@@ -40,6 +40,7 @@ public:
     StateEstimateNode() : Node("state_estimate")
     {
         using namespace std::placeholders;
+        ns_ = this->get_namespace();
 
         this->declare_parameter("wheel_relation2", 0.0); // default wheel_relation2
         wheel_relation2 = this->get_parameter("wheel_relation2").as_double();
@@ -47,13 +48,13 @@ public:
         angle_ponder = this->get_parameter("angle_ponder").as_double();
 
         cmd_vel_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
-            "/cmd_vel", rclcpp::QoS(rclcpp::KeepLast(10)).best_effort().durability_volatile(),
+            "cmd_vel", rclcpp::QoS(rclcpp::KeepLast(10)).best_effort().durability_volatile(),
             [this](const geometry_msgs::msg::Twist &msg){
                 update_xid_params_cmdvel(msg.linear.x, msg.angular.z);
             });
 
         l_enc_sub_ = this->create_subscription<std_msgs::msg::Float32>(
-            "/VelocityEncL", rclcpp::QoS(rclcpp::KeepLast(10)).best_effort().durability_volatile(),
+            "VelocityEncL", rclcpp::QoS(rclcpp::KeepLast(10)).best_effort().durability_volatile(),
             [this](const std_msgs::msg::Float32 &msg){
                 if(q1.size() <= q_length)
                     q1.push(msg.data / wheel_relation2);
@@ -65,7 +66,7 @@ public:
             });
 
         r_enc_sub_ = this->create_subscription<std_msgs::msg::Float32>(
-            "/VelocityEncR", rclcpp::QoS(rclcpp::KeepLast(10)).best_effort().durability_volatile(),
+            "VelocityEncR", rclcpp::QoS(rclcpp::KeepLast(10)).best_effort().durability_volatile(),
             [this](const std_msgs::msg::Float32 &msg){
                 if(q2.size() <= q_length)
                     q2.push(msg.data);
@@ -76,12 +77,12 @@ public:
                 update_xid_params_ws(w1, w2);
             });
 
-        w1_smooth_pub_ = this->create_publisher<std_msgs::msg::Float32>("/w_l", 10);
-        w2_smooth_pub_ = this->create_publisher<std_msgs::msg::Float32>("/w_r", 10);
-        pose_pub_ = this->create_publisher<geometry_msgs::msg::Vector3>("/pzb/pose", 10);
-        vel_pub_ = this->create_publisher<geometry_msgs::msg::Vector3>("/pzb/vel", 10);
-        odometry_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/pzb/odom", 10);
-        joint_state_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/joint_states", 10);
+        w1_smooth_pub_ = this->create_publisher<std_msgs::msg::Float32>("w_l", 10);
+        w2_smooth_pub_ = this->create_publisher<std_msgs::msg::Float32>("w_r", 10);
+        pose_pub_ = this->create_publisher<geometry_msgs::msg::Vector3>("pose_vector3", 10);
+        vel_pub_ = this->create_publisher<geometry_msgs::msg::Vector3>("vel", 10);
+        odometry_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("kinematic_odom", 10);
+        joint_state_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("joint_states", 10);
 
         updateTimer =
             this->create_wall_timer(10ms, std::bind(&StateEstimateNode::update, this));
@@ -124,6 +125,8 @@ private:
     sensor_msgs::msg::JointState joint_state_msg;
 
     tf2::Quaternion quat;
+
+    std::string ns_;
 
     double w1{0.0}, w2{0.0};
     double twist_x{0.0}, twist_z{0.0};

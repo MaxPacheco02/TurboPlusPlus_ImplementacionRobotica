@@ -54,7 +54,7 @@ def generate_launch_description():
     return LaunchDescription([
         ns_arg,
 
-        state_node,
-        dead_reckoning,
+        # state_node,
+        # dead_reckoning,
         pid_pose_node,
     ])

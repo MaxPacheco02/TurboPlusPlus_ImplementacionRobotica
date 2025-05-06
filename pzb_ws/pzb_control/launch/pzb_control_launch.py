@@ -56,5 +56,5 @@ def generate_launch_description():
 
         state_node,
         dead_reckoning,
-        pid_pose_node,
+        # pid_pose_node,
     ])

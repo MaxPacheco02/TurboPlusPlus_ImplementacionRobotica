@@ -70,7 +70,7 @@ def main():
 
     op_msg = geometry_msgs.msg.Twist()
 
-    pub = node.create_publisher(geometry_msgs.msg.Twist, '/cmd_vel', 10)
+    pub = node.create_publisher(geometry_msgs.msg.Twist, '/pzb/cmd_vel', 10)
 
     spinner = threading.Thread(target=rclpy.spin, args=(node,))
     spinner.start()

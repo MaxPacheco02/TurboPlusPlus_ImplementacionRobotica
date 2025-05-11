@@ -20,6 +20,9 @@ find_package(nav_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(Boost 1.45.0 COMPONENTS filesystem)
+
+add_subdirectory(libs/fatrop)
 
 install(DIRECTORY
   launch
@@ -51,8 +54,16 @@ ament_target_dependencies(pid_pose_node ${DEPENDENCIES})
 # add_executable(master_node src/master_node.cpp)
 # ament_target_dependencies(master_node ${DEPENDENCIES})
 
+add_executable(mpc_node src/mpc_node.cpp)
+target_include_directories(mpc_node PRIVATE deps/fatrop/fatrop ${Boost_INCLUDE_DIRS} )
+target_link_libraries(mpc_node fatrop ${Boost_LIBRARIES}) 
+ament_target_dependencies(mpc_node ${DEPENDENCIES})
+
 add_executable(line_follower_path_publisher_node src/line_follower_path_publisher_node.cpp)
 ament_target_dependencies(line_follower_path_publisher_node ${DEPENDENCIES})
+
+add_executable(obstacle_publisher src/obstacle_publisher.cpp)
+ament_target_dependencies(obstacle_publisher ${DEPENDENCIES})
 
 # Install Python executables
 install(PROGRAMS
@@ -65,7 +76,9 @@ DESTINATION lib/${PROJECT_NAME}
 install(TARGETS
   state_estimate
   pid_pose_node
+  mpc_node
   # master_node
+  obstacle_publisher
   line_follower_path_publisher_node
   DESTINATION lib/${PROJECT_NAME})
 

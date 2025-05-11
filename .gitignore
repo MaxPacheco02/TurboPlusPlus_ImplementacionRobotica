@@ -1,0 +1,7 @@
+.DS_Store
+log/
+build/
+install/
+*/.vscode
+.vscode
+code_gen/

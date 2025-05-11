@@ -1,0 +1,6 @@
+[submodule "pzb_ws/pzb_control/libs/rockit"]
+	path = pzb_ws/pzb_control/libs/rockit
+	url = https://github.com/meco-group/rockit.git
+[submodule "pzb_ws/pzb_control/libs/fatrop"]
+	path = pzb_ws/pzb_control/libs/fatrop
+	url = https://github.com/meco-group/fatrop.git

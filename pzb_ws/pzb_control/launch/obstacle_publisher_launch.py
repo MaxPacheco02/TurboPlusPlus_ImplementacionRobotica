@@ -14,25 +14,19 @@ from launch.substitutions import Command, LaunchConfiguration
 
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
-    
+
+
 def generate_launch_description():
     ns_arg = DeclareLaunchArgument('ns_', default_value='pzb')
-    
-    pzb_config = os.path.join(
-        get_package_share_directory('pzb_control'),
-        'config',
-        'conf.yaml'
-    )
-    
-    pid_pose_node = Node(
+
+    obstacle_publisher = Node(
         package='pzb_control',
-        executable='pid_pose_node',
-        parameters=[pzb_config],
+        executable='obstacle_publisher',
         namespace=LaunchConfiguration('ns_'),
     )
 
     return LaunchDescription([
         ns_arg,
 
-        pid_pose_node,
+        obstacle_publisher,
     ])

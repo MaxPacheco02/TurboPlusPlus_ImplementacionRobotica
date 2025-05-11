@@ -44,17 +44,9 @@ def generate_launch_description():
         namespace=LaunchConfiguration('ns_'),
     )
     
-    pid_pose_node = Node(
-        package='pzb_control',
-        executable='pid_pose_node',
-        parameters=[pzb_config],
-        namespace=LaunchConfiguration('ns_'),
-    )
-
     return LaunchDescription([
         ns_arg,
 
         state_node,
         dead_reckoning,
-        pid_pose_node,
     ])

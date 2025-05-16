@@ -18,8 +18,7 @@ dt    = 0.1                     # sample time
 
 # Static avoidance - general processing
 # Tf    = 1.0           # control horizon [s]
-Tf    = 20.0           # control horizon [s]
-
+Tf    = 10.0           # control horizon [s]
 
 Nhor  = (int)(Tf/dt)    # number of control intervals
 
@@ -93,7 +92,7 @@ ocp.set_value(Qs, Qs_init)
 psi_d_final = tg[4]
 
 # Virtual arm's length
-l_dist = 0.0
+l_dist = 0.1
 
 # Virtual point's position
 x_ = x_state + l_dist * cos(psi_state)
@@ -124,8 +123,8 @@ Qds     = Qs[5]
 # Path following objectives  
 ocp.add_objective(ocp.sum  (Qye*((ye)**2) + 
                             Qxe*(xe)**2))
-ocp.add_objective(ocp.at_tf(Qye*((ye)**2) + 
-                            Qxe*(xe)**2))
+ocp.add_objective(ocp.at_tf(Qye*((ye)**4) + 
+                            Qxe*(xe)**4))
 
 
 # Control constraints
@@ -146,9 +145,17 @@ for i in range((int)(obs_n/2)):
     for l in l_list:
         x_virt = x_state + l[0]*cos(psi_state) - l[1]*sin(psi_state)
         y_virt = y_state + l[0]*sin(psi_state) + l[1]*cos(psi_state)
-        obs_cost = Qds/((sqrt((obs[i*2]-x_virt)**2 + (obs[i*2+1]-y_virt)**2) / 3.)**1.5)
+        
+        l_to_obs = sqrt((obs[i*2]-x_virt)**2 + (obs[i*2+1]-y_virt)**2)
+        
+        epsilon = 0.1  # or another small value
+        obs_cost = Qds/((l_to_obs / 1.)**3 + epsilon)
+        # obs_cost = Qds/((l_to_obs / 3.)**2.)
         ocp.add_objective(ocp.sum( obs_cost ))
-        ocp.add_objective(ocp.at_tf( obs_cost ))
+        # ocp.add_objective(ocp.at_tf( obs_cost ))
+        
+        ocp.subject_to( l_to_obs >= 0.60 )
+
         if(i==0):
             obs_cost_sample = obs_cost
 

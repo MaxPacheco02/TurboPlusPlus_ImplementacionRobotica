@@ -12,6 +12,7 @@ from launch.substitutions import PathJoinSubstitution
 from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import Command, LaunchConfiguration
 
+import launch_ros.actions
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -44,10 +45,19 @@ def generate_launch_description():
         parameters=[mpc_config],
         namespace=LaunchConfiguration('ns_'),
     )
+    
+    obstacle_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            FindPackageShare('pzb_control'),
+            '/launch/obstacle_publisher_launch.py'
+        ]),
+    )
 
     return LaunchDescription([
         ns_arg,
 
         mpc_node,
         pid_pose_node,
+        
+        obstacle_launch,
     ])

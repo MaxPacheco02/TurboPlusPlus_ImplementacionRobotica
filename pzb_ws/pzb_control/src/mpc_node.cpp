@@ -139,9 +139,21 @@ public:
         "obstacle_positions", 10,
         [this](const std_msgs::msg::Float64MultiArray &msg)
         {
-          for (int i = 0; i < msg.data.size(); i++)
+          min_obs_x = msg.data[0];
+          min_obs_y = msg.data[1];
+
+          for (int i = 0; i < msg.data.size() / 2; i++)
           {
-            obs_arr[i] = msg.data[i];
+            obs_arr[i * 2] = msg.data[i * 2];
+            obs_arr[i * 2 + 1] = msg.data[i * 2 + 1];
+
+            if (
+                std::sqrt(std::pow(min_obs_x - pose.position.x, 2) + std::pow(min_obs_y - pose.position.y, 2)) >
+                std::sqrt(std::pow(msg.data[i * 2] - pose.position.x, 2) + std::pow(msg.data[i * 2 + 1] - pose.position.y, 2)))
+            {
+              min_obs_x = msg.data[i * 2];
+              min_obs_y = msg.data[i * 2 + 1];
+            }
           }
           state_->obs = obs_arr;
         });
@@ -212,6 +224,8 @@ private:
   std::vector<double> primary_weights;
   std::vector<double> secondary_weights;
 
+  double min_obs_x{100.0}, min_obs_y{100.0};
+
   Wp next_wp{0., 0.}, base_wp{0., 0.};
 
   double last_u{0.}, last_r{0.}, last_last_r{0.}, last_psi{0.};
@@ -251,7 +265,7 @@ private:
     auto dobs_setter = app_->get_parameter_setter("dobs");
     dobs_setter.set_value(dobs_arr.data());
 
-    std::vector<double> desired_weights = weight_calculator(obj_dist(obs_arr[0], obs_arr[1], pose));
+    std::vector<double> desired_weights = weight_calculator(obj_dist(min_obs_x, min_obs_y, pose));
 
     qs_debug_msg.data.clear();
     for (int i = 0; i < desired_weights.size(); i++)
@@ -266,7 +280,7 @@ private:
 
     RCLCPP_INFO(this->get_logger(), "Some errors");
     RCLCPP_INFO(this->get_logger(), "%f,%f,%f",
-    xe_debug_msg.data, psie_debug_msg.data, ye_debug_msg.data);
+                xe_debug_msg.data, psie_debug_msg.data, ye_debug_msg.data);
 
     // qs_setter.set_value(avoidance_weights.data());
 
@@ -397,26 +411,30 @@ private:
   // xe, ye, psi, u, r, ds
   std::vector<double> weight_calculator(double dist)
   {
-    std::vector<double> default_weights = primary_weights;  // Use primary weights as default
-    
+    std::vector<double> default_weights = primary_weights; // Use primary weights as default
+
     if (dist < 1e-5 || !first_goal_received)
-        return default_weights;  // Return default weights instead of zeros
-        
+      return default_weights; // Return default weights instead of zeros
+
     double ye_safe = std::isnan(ye_debug_msg.data) ? 0.0 : ye_debug_msg.data;
     double psie_safe = std::isnan(psie_debug_msg.data) ? 0.0 : psie_debug_msg.data;
-    
-    if (std::isinf(ye_safe) || std::isinf(psie_safe)) {
-        RCLCPP_WARN(this->get_logger(), "Infinite values detected in errors");
-        return default_weights;
+
+    if (std::isinf(ye_safe) || std::isinf(psie_safe))
+    {
+      RCLCPP_WARN(this->get_logger(), "Infinite values detected in errors");
+      return default_weights;
     }
 
     std::vector<double> out{0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
-    // When dist <= 2.0 -> use policy #1
-    // When dist >= 5.0 -> use policy #2
-    // When in-between  -> use the interpolation of both
-    double dist_p1{0.5}, dist_p2{0.6};
-    double dist_sat = std::clamp(dist - dist_p1, 0.0, dist_p2 - dist_p1) / (dist_p2 - dist_p1);
+    double base_threshold = 1.0;
+    double inner_threshold = 0.10; // the "width" of the interpolation band
+    double dist_p1 = base_threshold;
+    double dist_p2 = base_threshold + inner_threshold;
+
+    // Compute interpolation factor between 0 and 1
+    double dist_sat = std::clamp((dist - dist_p1) / (dist_p2 - dist_p1), 0.0, 1.0);
+
     for (int i = 0; i < 6; i++)
     {
       out[i] = primary_weights[i] * dist_sat + secondary_weights[i] * (1 - dist_sat);
@@ -424,9 +442,9 @@ private:
 
     // Prueba para speed challenge
     double speed_e_sat = std::clamp(
-      sqrt(psie_safe * psie_safe + ye_safe * ye_safe),
-      0., 0.5
-    ) / 0.5;
+                             sqrt(psie_safe * psie_safe + ye_safe * ye_safe),
+                             0., 0.5) /
+                         0.5;
 
     // double qu_safe = 5000;
     double qu_safe = out[3] * 10;

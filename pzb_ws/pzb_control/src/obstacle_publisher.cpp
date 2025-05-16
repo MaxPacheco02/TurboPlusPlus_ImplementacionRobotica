@@ -16,9 +16,13 @@ public:
         // Create timer for periodic publishing
         timer_ = this->create_wall_timer(500ms, std::bind(&ObstaclePublisher::publish_obstacles, this));
 
-        // Initialize obstacle positions (5 obstacles with x,y coordinates)
+        // Initialize obstacle positions
         obstacle_positions_ = {
-            1.0, 0.0
+            1.5, -1,
+            1.5, -0.5,
+            1.5, 0,
+            1.5, 0.5,
+            1.5, 1
         };
 
         RCLCPP_INFO(this->get_logger(), "ObstaclePublisher initialized");

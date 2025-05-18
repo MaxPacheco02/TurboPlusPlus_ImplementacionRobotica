@@ -72,7 +72,10 @@ public:
         goal_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
             "goal_pose", 10,
             [this](const geometry_msgs::msg::PoseStamped &msg)
-            { goal_pose = msg.pose; });
+            {
+                goal_pose = msg.pose;
+                received_goal = true;
+            });
 
         // path_sub_ = this->create_subscription<nav_msgs::msg::Path>(
         //     "pzb/path_to_follow", 10,
@@ -115,6 +118,8 @@ private:
     PID pid_linear, pid_angular;
 
     double motors_enabled{1.};
+
+    bool received_goal{false};
 
     double psi_d{0.0}, lin_vel_d{0.0}, ang_vel_d{0.0}, psi_e{0.0};
 
@@ -185,7 +190,8 @@ private:
 
         // Calculate angular error and normalize to [-π, π]
         double angular_error = normalize_angle(current_yaw - ref_yaw);
-        if(std::fabs(angular_error) < 0.05){
+        if (std::fabs(angular_error) < 0.05)
+        {
             angular_error = 0;
         }
 
@@ -197,7 +203,8 @@ private:
         double forward_error = dx * cos_yaw + dy * sin_yaw;  // Forward (x) in reference frame
         double lateral_error = -dx * sin_yaw + dy * cos_yaw; // Lateral (y) in reference frame
 
-        if(std::fabs(forward_error) < 0.05){
+        if (std::fabs(forward_error) < 0.05)
+        {
             forward_error = 0;
         }
 
@@ -210,15 +217,18 @@ private:
 
     void update()
     {
+        if(!received_goal)
+            return;
+        
         Error e = calculatePoseError(pose, goal_pose);
 
-        psi_d = std::atan2((goal_pose.position.y - pose.position.y), 
-        (goal_pose.position.x - pose.position.x));
+        psi_d = std::atan2((goal_pose.position.y - pose.position.y),
+                           (goal_pose.position.x - pose.position.x));
 
-        double trans_e = std::sqrt(e.x*e.x + e.y*e.y);
+        double trans_e = std::sqrt(e.x * e.x + e.y * e.y);
 
         // If it's not there, go. Else, fix orientation
-        if(trans_e > 0.05)
+        if (trans_e > 0.05)
             psi_e = get_angle_diff(psi_d, tf2::getYaw(pose.orientation));
         else
             psi_e = e.z;

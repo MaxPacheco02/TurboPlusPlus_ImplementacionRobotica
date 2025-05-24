@@ -48,7 +48,7 @@ public:
         angle_ponder = this->get_parameter("angle_ponder").as_double();
 
         cmd_vel_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
-            "cmd_vel", rclcpp::QoS(rclcpp::KeepLast(10)).best_effort().durability_volatile(),
+            "/cmd_vel", rclcpp::QoS(rclcpp::KeepLast(10)).best_effort().durability_volatile(),
             [this](const geometry_msgs::msg::Twist &msg){
                 update_xid_params_cmdvel(msg.linear.x, msg.angular.z);
             });

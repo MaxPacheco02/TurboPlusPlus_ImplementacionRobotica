@@ -1,134 +1,229 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-import cv2
-import numpy as np
 import os
-
+import math
+import numpy as np
+import cv2
+from cv_bridge import CvBridge
 from ament_index_python.packages import get_package_share_directory
 
-from sensor_msgs.msg import Image, CompressedImage
-from cv_bridge import CvBridge
-
-from pzb_msgs.msg import Signal
-
+from sensor_msgs.msg import CompressedImage, LaserScan
+from visualization_msgs.msg import Marker
+from geometry_msgs.msg import PoseStamped
 from ultralytics import YOLO
+from tf_transformations import quaternion_from_euler
 
-def cv2_conc(imgs):
-    frames = imgs[0].copy()
-    if len(frames.shape) == 2:
-        frames = cv2.cvtColor(frames, cv2.COLOR_GRAY2RGB)
-
-    for i in range(len(imgs)-1):
-        tmp = imgs[i+1].copy()
-        if len(tmp.shape) == 2:
-            tmp = cv2.cvtColor(tmp, cv2.COLOR_GRAY2RGB)
-        frames = np.concatenate((frames, tmp), axis=0) 
-    return frames
-
-class SignalDetection(Node):
+class TrailerPoseEstimator(Node):
     def __init__(self):
-        super().__init__('signal_detection')
-        self.signal_pub = self.create_publisher(Signal, '/signal_detected', 10)
-        self.processed_frame_pub = self.create_publisher(CompressedImage, '/signal_detection_processed_frame', 10)
-        self.frame_sub = self.create_subscription(CompressedImage, '/signal_frame', self.subscriber_callback, 10)
-        self.get_logger().info('signal_detection Initialized')
+        super().__init__('trailer_pose_estimator')
 
-        self.bridge = CvBridge()
-        self.signal = Signal()
+        # Camera intrinsics
+        self.fx = 531.16
+        self.cx = 291.21
 
-        self.zeimien_file_ = os.path.join(
+        model_path = os.path.join(
             get_package_share_directory('pzb_vision'),
             'config',
-            'yolo_pzb.pt'
+            'best.pt'
+        )
+        self.model = YOLO(model_path)
+        self.trailer_classes = ["rojo", "diagonal", "oxidado"]
+        self.bridge = CvBridge()
+
+        # Subscriptions
+        self.create_subscription(CompressedImage, '/signal_frame', self.image_callback, 10)
+        self.create_subscription(LaserScan, '/scan', self.laser_callback, 10)
+
+        # Marker Publishers
+        self.marker_center_pub = self.create_publisher(Marker, '/trailer_center_marker', 10)
+        self.marker_arrow_pub = self.create_publisher(Marker, '/trailer_alignment_marker', 10)
+        self.marker_left_pub = self.create_publisher(Marker, '/trailer_left_marker', 10)
+        self.marker_right_pub = self.create_publisher(Marker, '/trailer_right_marker', 10)
+
+        # Pose Publisher
+        self.pose_pub = self.create_publisher(PoseStamped, '/desired_trailer_pose', 10)
+
+        # State
+        self.trailer_center_x = None
+        self.image_width = None
+        self.detected_class = None
+        self.center_range_xy = None
+
+    def image_callback(self, msg):
+        img = self.bridge.compressed_imgmsg_to_cv2(msg)
+        self.image_width = img.shape[1]
+        results = self.model(img, stream=True)
+
+        for result in results:
+            for box in result.boxes:
+                class_name = result.names[int(box.cls[0])]
+                if class_name in self.trailer_classes:
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    self.trailer_center_x = (x1 + x2) // 2
+                    self.detected_class = class_name
+                    self.publish_center_marker()
+                    return  
+
+    def laser_callback(self, msg):
+        if self.trailer_center_x is None or self.image_width is None:
+            return
+
+        # Convert pixel to angle
+        u = self.trailer_center_x
+        theta = math.atan((u - self.cx) / self.fx)
+        center_idx = int((theta - msg.angle_min) / msg.angle_increment)
+
+        self.get_logger().info(
+            f"Pixel {u} → θ = {math.degrees(theta):.2f}° → LaserScan index {center_idx}"
         )
 
-        self.zeimien = YOLO(self.zeimien_file_)  # pretrained YOLOv8n model
-        # self.yolos = [self.yolo_signals, self.yolo_ampel]
-        self.yolos = [self.zeimien]
+        offset = int(math.radians(1) / msg.angle_increment)
+        indices = [center_idx - offset, center_idx, center_idx + offset]
 
-        self.counter = 0
+        points = []
+        for idx in indices:
+            if 0 <= idx < len(msg.ranges):
+                r = msg.ranges[idx]
+                if msg.range_min < r < msg.range_max:
+                    angle = msg.angle_min + idx * msg.angle_increment
+                    x = r * math.cos(angle)
+                    y = r * math.sin(angle)
+                    points.append((x, y))
 
-        self.signals =	{
-            "stop": Signal.STOP,
-            "left": Signal.LEFT,
-            "rotonda": Signal.CIRCLE,
-            "circle": Signal.CIRCLE,
-            "workers": Signal.SLOW,
-            "slow": Signal.SLOW,
-            "green": Signal.GREEN,
-            "yellow": Signal.YELLOW,
-            "red": Signal.RED,
-            "up": Signal.UP,
-            "straight": Signal.UP,
-        }
+        if len(points) != 3:
+            return
 
-        self.workers_detected = False
-        
-    def subscriber_callback(self, IMG):
+        # Normal vector from P1 → P3
+        dx = points[2][0] - points[0][0]
+        dy = points[2][1] - points[0][1]
+        nx = -dy
+        ny = dx
 
-        # np_arr = np.fromstring(IMG.data, np.uint8)
-        # img = cv2.imdecode(np_arr, cv2.CV_LOAD_IMAGE_COLOR)
-        img = self.bridge.compressed_imgmsg_to_cv2(IMG)
+        # Flip normal to point toward robot
+        vx = -points[1][0]
+        vy = -points[1][1]
+        dot = nx * vx + ny * vy
+        if dot < 0:
+            nx *= -1
+            ny *= -1
 
-        # img = self.bridge.imgmsg_to_cv2(IMG,desired_encoding='passthrough')
-        # w = img.shape[1]
-        # h = img.shape[0]
-        w = img.shape[1]*3
-        h = img.shape[0]*3
-        img = cv2.resize(img,(w,h))
-        img_og = img.copy()
+        # Normalize and compute desired position 15cm in front of trailer
+        length = math.hypot(nx, ny)
+        nx /= length
+        ny /= length
 
-        for yolo in self.yolos:
-            results = yolo(img, stream=True)
-            detections = []
-            for result in results:
-                for box in result.boxes:
-                    # cv2.rectangle(img, (int(box.xyxy[0][0]), int(box.xyxy[0][1])),
-                    #             (int(box.xyxy[0][2]), int(box.xyxy[0][3])), (255, 0, 0), 5)
-                    # cv2.putText(img, f"{result.names[int(box.cls[0])]}",
-                    #             (int(box.xyxy[0][0]), int(box.xyxy[0][1]) - 10),
-                    #             cv2.FONT_HERSHEY_PLAIN, 3, (255, 0, 0), 3)
-                    if not (result.names[int(box.cls[0])]=="left" and self.workers_detected):
-                        detections.append([result.names[int(box.cls[0])], int(box.xyxy[0][0]), abs(w - int(box.xyxy[0][1]))])
-                    if result.names[int(box.cls[0])] == "workers":
-                        self.workers_detected = True
+        x, y = points[1]
+        desired_x = x - 0.15 * nx
+        desired_y = y - 0.15 * ny
+        self.center_range_xy = (desired_x, desired_y)
 
-        detected_signal = ''
-        if len(detections) > 0:
-            detected_signal = detections[self.lowest_detected(detections)][0]
-        
-        self.signal.signal = -1
-        if detected_signal in self.signals:
-            self.signal.signal = self.signals[detected_signal]
-        self.signal_pub.publish(self.signal)
+        normal_angle = math.atan2(ny, nx) + math.pi
+        quat = quaternion_from_euler(0, 0, normal_angle)
 
-        # # Viewing
-        # frames = cv2_conc([img_og, img])
-        # cv2.imshow('frames', img)
-        # cv2.waitKey(1)
-        msg = CompressedImage()
-        # msg.header.stamp = rospy.Time.now()
-        msg.format = "jpeg"
-        msg.data = np.array(cv2.imencode('.jpg', img)[1]).tostring()
-        # Publish new image
-        self.processed_frame_pub.publish(msg)
+        # Final corrected markers and pose
+        self.publish_arrow_marker(desired_x, desired_y, quat)
+        self.publish_pose(desired_x, desired_y, quat)
+        self.publish_point_marker(points[0], self.marker_left_pub, "left", 1.0, 0.0, 0.0)
+        self.publish_point_marker(points[2], self.marker_right_pub, "right", 0.0, 1.0, 0.0)
 
-    def lowest_detected(self,detections):
-        lowest_id = 0
-        for i in range(1,len(detections)):
-            if detections[i][2] < detections[lowest_id][2]:
-                lowest_id = i
-            if not self.workers_detected:
-                if detections[i][0] == "left":
-                    lowest_id = i
-        return lowest_id
+
+    def publish_center_marker(self):
+        if self.center_range_xy is None:
+            return
+
+        x, y = self.center_range_xy
+        marker = Marker()
+        marker.header.frame_id = "base_link"
+        marker.header.stamp = self.get_clock().now().to_msg()
+        marker.ns = "trailer_center"
+        marker.id = 0
+        marker.type = Marker.SPHERE
+        marker.action = Marker.ADD
+        marker.pose.position.x = x
+        marker.pose.position.y = y
+        marker.pose.position.z = 0.0
+        marker.scale.x = marker.scale.y = marker.scale.z = 0.2
+
+        if self.detected_class == "rojo":
+            marker.color.r = 1.0
+            marker.color.g = 0.0
+            marker.color.b = 0.0
+        elif self.detected_class == "diagonal":
+            marker.color.r = 1.0
+            marker.color.g = 1.0
+            marker.color.b = 0.0
+        elif self.detected_class == "oxidado":
+            marker.color.r = 0.6
+            marker.color.g = 0.3
+            marker.color.b = 0.1
+        else:
+            marker.color.r = marker.color.g = marker.color.b = 1.0
+
+        marker.color.a = 0.9
+        marker.lifetime.sec = 1
+        self.marker_center_pub.publish(marker)
+
+    def publish_arrow_marker(self, x, y, quat):
+        marker = Marker()
+        marker.header.frame_id = "base_link"
+        marker.header.stamp = self.get_clock().now().to_msg()
+        marker.ns = "trailer_alignment"
+        marker.id = 1
+        marker.type = Marker.ARROW
+        marker.action = Marker.ADD
+        marker.pose.position.x = x
+        marker.pose.position.y = y
+        marker.pose.position.z = 0.0
+        marker.pose.orientation.x = quat[0]
+        marker.pose.orientation.y = quat[1]
+        marker.pose.orientation.z = quat[2]
+        marker.pose.orientation.w = quat[3]
+        marker.scale.x = 0.5
+        marker.scale.y = marker.scale.z = 0.05
+        marker.color.r = 0.0
+        marker.color.g = 0.0
+        marker.color.b = 1.0
+        marker.color.a = 1.0
+        marker.lifetime.sec = 1
+        self.marker_arrow_pub.publish(marker)
+
+    def publish_pose(self, x, y, quat):
+        pose = PoseStamped()
+        pose.header.frame_id = "base_link"
+        pose.header.stamp = self.get_clock().now().to_msg()
+        pose.pose.position.x = x
+        pose.pose.position.y = y
+        pose.pose.position.z = 0.0
+        pose.pose.orientation.x = quat[0]
+        pose.pose.orientation.y = quat[1]
+        pose.pose.orientation.z = quat[2]
+        pose.pose.orientation.w = quat[3]
+        self.pose_pub.publish(pose)
+
+    def publish_point_marker(self, point, publisher, ns, r, g, b):
+        marker = Marker()
+        marker.header.frame_id = "base_link"
+        marker.header.stamp = self.get_clock().now().to_msg()
+        marker.ns = f"trailer_{ns}_point"
+        marker.id = 0
+        marker.type = Marker.SPHERE
+        marker.action = Marker.ADD
+        marker.pose.position.x = point[0]
+        marker.pose.position.y = point[1]
+        marker.pose.position.z = 0.0
+        marker.scale.x = marker.scale.y = marker.scale.z = 0.15
+        marker.color.r = r
+        marker.color.g = g
+        marker.color.b = b
+        marker.color.a = 1.0
+        marker.lifetime.sec = 1
+        publisher.publish(marker)
 
 def main(args=None):
     rclpy.init(args=args)
-    l_d = SignalDetection()
-    rclpy.spin(l_d)
-    l_d.destroy_node()
+    node = TrailerPoseEstimator()
+    rclpy.spin(node)
     rclpy.shutdown()
 
 if __name__ == '__main__':

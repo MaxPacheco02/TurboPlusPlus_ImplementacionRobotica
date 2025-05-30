@@ -3,22 +3,22 @@ import rclpy
 from rclpy.node import Node
 import os
 import math
-import numpy as np
-import cv2
+
 from cv_bridge import CvBridge
 from ament_index_python.packages import get_package_share_directory
 
-from sensor_msgs.msg import CompressedImage, LaserScan
+from sensor_msgs.msg import CompressedImage
+from std_msgs.msg import Float64
 from visualization_msgs.msg import Marker
+from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped
 from ultralytics import YOLO
-from tf_transformations import quaternion_from_euler
 
-class TrailerPoseEstimator(Node):
+
+class TrailerAnglePublisher(Node):
     def __init__(self):
-        super().__init__('trailer_pose_estimator')
+        super().__init__('trailer_angle_publisher')
 
-        # Camera intrinsics
         self.fx = 531.16
         self.cx = 291.21
 
@@ -31,200 +31,154 @@ class TrailerPoseEstimator(Node):
         self.trailer_classes = ["rojo", "diagonal", "oxidado"]
         self.bridge = CvBridge()
 
-        # Subscriptions
         self.create_subscription(CompressedImage, '/signal_frame', self.image_callback, 10)
-        self.create_subscription(LaserScan, '/scan', self.laser_callback, 10)
+        self.angle_pub = self.create_publisher(Float64, '/yolo_bearing_angle', 10)
+        self.marker_pub = self.create_publisher(Marker, '/trailer_marker', 10)
+        self.path_pub = self.create_publisher(Path, '/trailer_path', 10)
 
-        # Marker Publishers
-        self.marker_center_pub = self.create_publisher(Marker, '/trailer_center_marker', 10)
-        self.marker_arrow_pub = self.create_publisher(Marker, '/trailer_alignment_marker', 10)
-        self.marker_left_pub = self.create_publisher(Marker, '/trailer_left_marker', 10)
-        self.marker_right_pub = self.create_publisher(Marker, '/trailer_right_marker', 10)
-
-        # Pose Publisher
-        self.pose_pub = self.create_publisher(PoseStamped, '/desired_trailer_pose', 10)
-
-        # State
-        self.trailer_center_x = None
-        self.image_width = None
-        self.detected_class = None
-        self.center_range_xy = None
+        self.get_logger().info('TrailerAnglePublisher node initialized')
 
     def image_callback(self, msg):
         img = self.bridge.compressed_imgmsg_to_cv2(msg)
-        self.image_width = img.shape[1]
         results = self.model(img, stream=True)
+
+        found_trailer = False
 
         for result in results:
             for box in result.boxes:
-                class_name = result.names[int(box.cls[0])]
-                if class_name in self.trailer_classes:
+                conf = float(box.conf[0])
+                class_id = int(box.cls[0])
+                class_name = result.names[class_id]
+
+                if class_name in self.trailer_classes and conf > 0.65:
+                    found_trailer = True
+
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    self.trailer_center_x = (x1 + x2) // 2
-                    self.detected_class = class_name
-                    self.publish_center_marker()
-                    return  
+                    center_x = (x1 + x2) // 2
+                    theta = -math.atan((center_x - self.cx) / self.fx)
 
-    def laser_callback(self, msg):
-        if self.trailer_center_x is None or self.image_width is None:
-            return
+                    self.get_logger().info(
+                        f"[{class_name}] Detected with conf = {conf:.2f}, θ = {math.degrees(theta):.2f}°"
+                    )
 
-        # Convert pixel to angle
-        u = self.trailer_center_x
-        theta = math.atan((u - self.cx) / self.fx)
-        center_idx = int((theta - msg.angle_min) / msg.angle_increment)
+                    # Publish angle
+                    self.angle_pub.publish(Float64(data=theta))
 
-        self.get_logger().info(
-            f"Pixel {u} → θ = {math.degrees(theta):.2f}° → LaserScan index {center_idx}"
-        )
+                    # Place trailer 20 cm forward in X, angle offset in Y
+                    x = -0.5
+                    y = math.tan(theta) * x
+                    z = 0.0  # flat plane for top-down visualization
 
-        offset = int(math.radians(1) / msg.angle_increment)
-        indices = [center_idx - offset, center_idx, center_idx + offset]
+                    color = self.get_color_for_class(class_name)
 
-        points = []
-        for idx in indices:
-            if 0 <= idx < len(msg.ranges):
-                r = msg.ranges[idx]
-                if msg.range_min < r < msg.range_max:
-                    angle = msg.angle_min + idx * msg.angle_increment
-                    x = r * math.cos(angle)
-                    y = r * math.sin(angle)
-                    points.append((x, y))
+                    # Sphere Marker
+                    sphere = Marker()
+                    sphere.header.frame_id = "base_axis"
+                    sphere.header.stamp = self.get_clock().now().to_msg()
+                    sphere.ns = "trailer_center"
+                    sphere.id = 0
+                    sphere.type = Marker.SPHERE
+                    sphere.action = Marker.ADD
+                    sphere.pose.position.x = x
+                    sphere.pose.position.y = y
+                    sphere.pose.position.z = z
+                    sphere.pose.orientation.w = 1.0
+                    sphere.scale.x = 0.1
+                    sphere.scale.y = 0.1
+                    sphere.scale.z = 0.1
+                    sphere.color = color
+                    self.marker_pub.publish(sphere)
 
-        if len(points) != 3:
-            return
+                    # Arrow Marker
+                    arrow = Marker()
+                    arrow.header.frame_id = "base_axis"
+                    arrow.header.stamp = self.get_clock().now().to_msg()
+                    arrow.ns = "trailer_arrow"
+                    arrow.id = 1
+                    arrow.type = Marker.ARROW
+                    arrow.action = Marker.ADD
+                    arrow.pose.position.x = 0.0
+                    arrow.pose.position.y = 0.0
+                    arrow.pose.position.z = z
+                    arrow.pose.orientation.z = math.sin(theta / 2)
+                    arrow.pose.orientation.w = math.cos(theta / 2)
+                    arrow.scale.x = 0.5
+                    arrow.scale.y = 0.05
+                    arrow.scale.z = 0.05
+                    arrow.color = color
+                    self.marker_pub.publish(arrow)
 
-        # Normal vector from P1 → P3
-        dx = points[2][0] - points[0][0]
-        dy = points[2][1] - points[0][1]
-        nx = -dy
-        ny = dx
+                    # Path from origin to trailer
+                    path_msg = Path()
+                    path_msg.header.frame_id = "base_axis"
+                    path_msg.header.stamp = self.get_clock().now().to_msg()
 
-        # Flip normal to point toward robot
-        vx = -points[1][0]
-        vy = -points[1][1]
-        dot = nx * vx + ny * vy
-        if dot < 0:
-            nx *= -1
-            ny *= -1
+                    start_pose = PoseStamped()
+                    start_pose.header = path_msg.header
+                    start_pose.pose.position.x = 0.0
+                    start_pose.pose.position.y = 0.0
+                    start_pose.pose.position.z = z
+                    start_pose.pose.orientation.w = 1.0
 
-        # Normalize and compute desired position 15cm in front of trailer
-        length = math.hypot(nx, ny)
-        nx /= length
-        ny /= length
+                    end_pose = PoseStamped()
+                    end_pose.header = path_msg.header
+                    end_pose.pose.position.x = x
+                    end_pose.pose.position.y = y
+                    end_pose.pose.position.z = z
+                    end_pose.pose.orientation.w = 1.0
 
-        x, y = points[1]
-        desired_x = x - 0.15 * nx
-        desired_y = y - 0.15 * ny
-        self.center_range_xy = (desired_x, desired_y)
+                    path_msg.poses = [start_pose, end_pose]
+                    self.path_pub.publish(path_msg)
 
-        normal_angle = math.atan2(ny, nx) + math.pi
-        quat = quaternion_from_euler(0, 0, normal_angle)
+                    return  # only process first valid detection
 
-        # Final corrected markers and pose
-        self.publish_arrow_marker(desired_x, desired_y, quat)
-        self.publish_pose(desired_x, desired_y, quat)
-        self.publish_point_marker(points[0], self.marker_left_pub, "left", 1.0, 0.0, 0.0)
-        self.publish_point_marker(points[2], self.marker_right_pub, "right", 0.0, 1.0, 0.0)
+        if not found_trailer:
+            self.remove_marker("trailer_center", 0)
+            self.remove_marker("trailer_arrow", 1)
+            self.clear_path()
 
-
-    def publish_center_marker(self):
-        if self.center_range_xy is None:
-            return
-
-        x, y = self.center_range_xy
+    def remove_marker(self, ns, marker_id):
         marker = Marker()
-        marker.header.frame_id = "base_link"
+        marker.header.frame_id = "base_axis"
         marker.header.stamp = self.get_clock().now().to_msg()
-        marker.ns = "trailer_center"
-        marker.id = 0
-        marker.type = Marker.SPHERE
-        marker.action = Marker.ADD
-        marker.pose.position.x = x
-        marker.pose.position.y = y
-        marker.pose.position.z = 0.0
-        marker.scale.x = marker.scale.y = marker.scale.z = 0.2
+        marker.ns = ns
+        marker.id = marker_id
+        marker.action = Marker.DELETE
+        self.marker_pub.publish(marker)
 
-        if self.detected_class == "rojo":
-            marker.color.r = 1.0
-            marker.color.g = 0.0
-            marker.color.b = 0.0
-        elif self.detected_class == "diagonal":
-            marker.color.r = 1.0
-            marker.color.g = 1.0
-            marker.color.b = 0.0
-        elif self.detected_class == "oxidado":
-            marker.color.r = 0.6
-            marker.color.g = 0.3
-            marker.color.b = 0.1
+    def clear_path(self):
+        path = Path()
+        path.header.frame_id = "base_axis"
+        path.header.stamp = self.get_clock().now().to_msg()
+        path.poses = []
+        self.path_pub.publish(path)
+
+    def get_color_for_class(self, class_name):
+        color = Marker().color
+        color.a = 1.0
+        if class_name == "rojo":
+            color.r = 1.0
+            color.g = 0.0
+            color.b = 0.0
+        elif class_name == "oxidado":
+            color.r = 0.6
+            color.g = 0.3
+            color.b = 0.0
+        elif class_name == "diagonal":
+            color.r = 1.0
+            color.g = 1.0
+            color.b = 0.0
         else:
-            marker.color.r = marker.color.g = marker.color.b = 1.0
+            color.r = color.g = color.b = 1.0  # fallback
+        return color
 
-        marker.color.a = 0.9
-        marker.lifetime.sec = 1
-        self.marker_center_pub.publish(marker)
-
-    def publish_arrow_marker(self, x, y, quat):
-        marker = Marker()
-        marker.header.frame_id = "base_link"
-        marker.header.stamp = self.get_clock().now().to_msg()
-        marker.ns = "trailer_alignment"
-        marker.id = 1
-        marker.type = Marker.ARROW
-        marker.action = Marker.ADD
-        marker.pose.position.x = x
-        marker.pose.position.y = y
-        marker.pose.position.z = 0.0
-        marker.pose.orientation.x = quat[0]
-        marker.pose.orientation.y = quat[1]
-        marker.pose.orientation.z = quat[2]
-        marker.pose.orientation.w = quat[3]
-        marker.scale.x = 0.5
-        marker.scale.y = marker.scale.z = 0.05
-        marker.color.r = 0.0
-        marker.color.g = 0.0
-        marker.color.b = 1.0
-        marker.color.a = 1.0
-        marker.lifetime.sec = 1
-        self.marker_arrow_pub.publish(marker)
-
-    def publish_pose(self, x, y, quat):
-        pose = PoseStamped()
-        pose.header.frame_id = "base_link"
-        pose.header.stamp = self.get_clock().now().to_msg()
-        pose.pose.position.x = x
-        pose.pose.position.y = y
-        pose.pose.position.z = 0.0
-        pose.pose.orientation.x = quat[0]
-        pose.pose.orientation.y = quat[1]
-        pose.pose.orientation.z = quat[2]
-        pose.pose.orientation.w = quat[3]
-        self.pose_pub.publish(pose)
-
-    def publish_point_marker(self, point, publisher, ns, r, g, b):
-        marker = Marker()
-        marker.header.frame_id = "base_link"
-        marker.header.stamp = self.get_clock().now().to_msg()
-        marker.ns = f"trailer_{ns}_point"
-        marker.id = 0
-        marker.type = Marker.SPHERE
-        marker.action = Marker.ADD
-        marker.pose.position.x = point[0]
-        marker.pose.position.y = point[1]
-        marker.pose.position.z = 0.0
-        marker.scale.x = marker.scale.y = marker.scale.z = 0.15
-        marker.color.r = r
-        marker.color.g = g
-        marker.color.b = b
-        marker.color.a = 1.0
-        marker.lifetime.sec = 1
-        publisher.publish(marker)
 
 def main(args=None):
     rclpy.init(args=args)
-    node = TrailerPoseEstimator()
+    node = TrailerAnglePublisher()
     rclpy.spin(node)
     rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()

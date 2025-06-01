@@ -25,8 +25,13 @@ q/z : auto/teleop op. mode
 CTRL-C to quit
 """
 
-x_vel = 0.4
-z_vel = 1.5
+# Fast
+x_vel = 0.15
+z_vel = 1.5 
+
+# Slamming
+x_vel = 0.02
+z_vel = 0.05
 
 moveBindings = {
     'i': (x_vel, 0.),
@@ -44,6 +49,7 @@ opModeBindings = {
     'z': 0.,
 }
 
+
 def getKey(settings):
     tty.setraw(sys.stdin.fileno())
     # sys.stdin.read() returns a string on Linux
@@ -51,15 +57,19 @@ def getKey(settings):
     termios.tcsetattr(sys.stdin, termios.TCSADRAIN, settings)
     return key
 
+
 def saveTerminalSettings():
     return termios.tcgetattr(sys.stdin)
+
 
 def restoreTerminalSettings(old_settings):
     termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
 
+
 def vels(op_mode):
     mode = ['tele', 'auto']
-    return 'currently:\top mode %s ' % (mode[int(op_mode)])   
+    return 'currently:\top mode %s ' % (mode[int(op_mode)])
+
 
 def main():
     settings = saveTerminalSettings()
@@ -70,7 +80,7 @@ def main():
 
     op_msg = geometry_msgs.msg.Twist()
 
-    pub = node.create_publisher(geometry_msgs.msg.Twist, '/pzb/cmd_vel', 10)
+    pub = node.create_publisher(geometry_msgs.msg.Twist, '/cmd_vel', 10)
 
     spinner = threading.Thread(target=rclpy.spin, args=(node,))
     spinner.start()
@@ -78,6 +88,12 @@ def main():
     op_mode = 0.
     x = 0.
     z = 0.
+    
+    x_filtered = 0.
+    z_filtered = 0.
+
+    # smoothing factor between 0 (more smooth) and 1 (more reactive)
+    alpha = 1.0
 
     try:
         print(msg)
@@ -101,9 +117,12 @@ def main():
                 z = 0.0
                 if (key == '\x03'):
                     break
-            
-            op_msg.linear.x = x
-            op_msg.angular.z = z
+                
+            x_filtered = alpha * x + (1 - alpha) * x_filtered
+            z_filtered = alpha * z + (1 - alpha) * z_filtered
+
+            op_msg.linear.x = x_filtered
+            op_msg.angular.z = z_filtered
             pub.publish(op_msg)
 
     except Exception as e:
@@ -116,6 +135,7 @@ def main():
         rclpy.shutdown()
         spinner.join()
         restoreTerminalSettings(settings)
+
 
 if __name__ == '__main__':
     main()

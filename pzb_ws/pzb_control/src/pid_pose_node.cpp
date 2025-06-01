@@ -87,7 +87,7 @@ public:
         //         wp_list = get_wp_list(msg);
         //     });
 
-        cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
+        cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
 
         updateTimer =
             this->create_wall_timer(10ms, std::bind(&PIDGuidance::update, this));
@@ -248,8 +248,8 @@ private:
         // RCLCPP_INFO(get_logger(), "wp_i: %d, size: %d, vel: %f, ang_v: %f", wp_i, wp_list.size(), vel_d, ang_vel_d);
         // RCLCPP_INFO(get_logger(), "From %f, %f to %f, %f", this->pose.x, this->pose.y, wp_list[wp_i].x, wp_list[wp_i].y);
 
-        this->cmd_vel_msg.linear.x = lin_vel_d;
-        this->cmd_vel_msg.angular.z = ang_vel_d;
+        this->cmd_vel_msg.linear.x = std::clamp(lin_vel_d, -0.1, 0.1);
+        this->cmd_vel_msg.angular.z = std::clamp(ang_vel_d, -0.2, 0.2);
         cmd_vel_pub_->publish(this->cmd_vel_msg);
 
         last_lin_vel_d = lin_vel_d;

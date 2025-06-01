@@ -82,7 +82,7 @@ install(DIRECTORY
 )
 
 install(PROGRAMS
-    scripts/signal_detection_node.py
+    scripts/trailer_angle_service.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

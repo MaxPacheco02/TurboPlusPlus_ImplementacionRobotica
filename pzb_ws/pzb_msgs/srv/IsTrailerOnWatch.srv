@@ -1,0 +1,3 @@
+string trailer_type   # "diagonal", "oxidado", "rojo"
+---
+bool is_on_watch

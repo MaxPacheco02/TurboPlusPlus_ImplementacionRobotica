@@ -30,6 +30,9 @@
 #include "tf2/utils.hpp"
 #include "std_srvs/srv/empty.hpp"
 
+#include "pzb_msgs/msg/trailer_bearing.hpp"
+#include "pzb_msgs/srv/trailer_align.hpp"
+
 using namespace std::chrono_literals;
 
 struct MarkerProps
@@ -71,12 +74,14 @@ public:
             });
 
         // Get a trailer's relative heading angle from the camera
-        yolo_bearing_sub_ = this->create_subscription<std_msgs::msg::Float64>(
-            "/yolo_bearing_angle", 10,
-            [this](const std_msgs::msg::Float64 &msg)
+        yolo_bearing_sub_ = this->create_subscription<pzb_msgs::msg::TrailerBearing>(
+            "/yolo_bearing_angles", 10,
+            [this](const pzb_msgs::msg::TrailerBearing &msg)
             {
                 last_yolo_update_ = this->get_clock()->now();
-                cam_bearing_angle = msg.data;
+                cam_bearing_angles["diagonal"] = msg.diagonal;
+                cam_bearing_angles["oxidado"] = msg.oxidado;
+                cam_bearing_angles["rojo"] = msg.diagonal;
             });
 
         // Get a pallet's relative pose from the camera
@@ -88,7 +93,7 @@ public:
                 pallet_v = forward(pose2vec(msg.pose), -axis2cam);
             });
 
-        trailer_service_ = this->create_service<std_srvs::srv::Empty>(
+        trailer_service_ = this->create_service<pzb_msgs::srv::TrailerAlign>(
             "trailer_align_srv", std::bind(
                                      &AlignmentNode::align_trailer, this, _1, _2));
 
@@ -112,13 +117,13 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_sub_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odometry_sub_;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr nav_goal_sub_;
-    rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr yolo_bearing_sub_;
+    rclcpp::Subscription<pzb_msgs::msg::TrailerBearing>::SharedPtr yolo_bearing_sub_;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pallet_pose_sub_;
 
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pid_ref_pub_;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
 
-    rclcpp::Service<std_srvs::srv::Empty>::SharedPtr trailer_service_;
+    rclcpp::Service<pzb_msgs::srv::TrailerAlign>::SharedPtr trailer_service_;
     rclcpp::Service<std_srvs::srv::Empty>::SharedPtr pallet_service_;
 
     visualization_msgs::msg::MarkerArray marker_arr;
@@ -135,7 +140,12 @@ private:
     int nearest_index{-1};
     double offset = 0.2;
 
-    double cam_bearing_angle{0};
+    std::map<std::string, double> cam_bearing_angles = {
+        {"diagonal", NAN},
+        {"oxidado", NAN},
+        {"rojo", NAN},
+    };
+
     double axis2cam{0.056};
     Eigen::Vector2f axis2cam_v;
 
@@ -159,21 +169,18 @@ private:
         {0, 0, 0, 0}};
 
     std::map<std::string, MarkerProps> marker_type = {
-        {"round", MarkerProps{2, 0.5, 0.5, 0.5, 0}},
-        {"boat", MarkerProps{2, 1.0, 1.0, 1.0, 0}},
         {"marker", MarkerProps{3, 0.02, 0.02, 0.02, 0.25}},
-        {"picture", MarkerProps{1, 0.5, 0.5, 0.5, 0.25}},
     };
 
     // Trailer aligning service call. Assumes the trailer is being detected.
-    void align_trailer(const std::shared_ptr<std_srvs::srv::Empty::Request> request,
-                       std::shared_ptr<std_srvs::srv::Empty::Response> response)
+    void align_trailer(const std::shared_ptr<pzb_msgs::srv::TrailerAlign::Request> request,
+                       std::shared_ptr<pzb_msgs::srv::TrailerAlign::Response> response)
     {
         // Ignore if a yolo detection hasn't been recently found (100 ms)
         if (this->get_clock()->now() - last_yolo_update_ > rclcpp::Duration(0, 100 * 1e6))
             return;
 
-        calc_trailer_ref();
+        // calc_trailer_ref(cam_bearing_angles[request];
         pid_ref_pub_->publish(pid_ref_msg);
     }
 
@@ -238,7 +245,7 @@ private:
         set_pid_ref(forward(pallet_v, -offset));
     }
 
-    void calc_trailer_ref()
+    void calc_trailer_ref(double cam_bearing_angle)
     {
         if (laserscan_vector.size() == 0)
             return;

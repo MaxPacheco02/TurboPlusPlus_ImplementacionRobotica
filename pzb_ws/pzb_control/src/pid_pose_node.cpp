@@ -132,7 +132,7 @@ private:
     double KP{1.0}, KI{1.0}, KD{1.0};
     double u_max{10.0}, u_min{-10.0};
 
-    double min_surge_ref{-0.1}, max_surge_ref{0.1};
+    double min_surge_ref{-0.3}, max_surge_ref{0.3};
     double min_yaw_ref{-1.0}, max_yaw_ref{1.0};
 
     int wp_i{0};
@@ -233,15 +233,26 @@ private:
         else
             psi_e = e.z;
 
-        pid_linear.saturateManipulation(std::clamp(e.x / (1 + 3 * std::fabs(psi_e)), min_surge_ref, max_surge_ref));
+        // pid_linear.saturateManipulation(trans_e);
+        double lin_e = std::clamp(e.x / (1 + 3 * std::fabs(e.y)), min_surge_ref, max_surge_ref);
+        pid_linear.saturateManipulation(lin_e);
         pid_angular.saturateManipulation(psi_e);
 
         lin_vel_d = -pid_linear.u_;
         ang_vel_d = -pid_angular.u_;
 
-        lin_vel_d = last_lin_vel_d + std::clamp(lin_vel_d - last_lin_vel_d, -0.01, 0.01);
-        ang_vel_d = last_ang_vel_d + std::clamp(ang_vel_d - last_ang_vel_d, -0.01, 0.01);
+        // if(std::fabs(lin_vel_d) < 0.01){
+        //     lin_vel_d = 0;
+        // }
 
+        if(std::fabs(ang_vel_d) < 0.01){
+            ang_vel_d = 0;
+        }
+
+        // lin_vel_d = last_lin_vel_d + std::clamp(lin_vel_d - last_lin_vel_d, -0.01, 0.01);
+        // ang_vel_d = last_ang_vel_d + std::clamp(ang_vel_d - last_ang_vel_d, -0.01, 0.01);
+
+        RCLCPP_INFO(get_logger(), "lin_e: %f, ang_e: %f", trans_e, psi_e);
         RCLCPP_INFO(get_logger(), "e: %f, %f, %f", e.x, e.y, e.z);
         RCLCPP_INFO(get_logger(), "lin_d: %f, u: %f", lin_vel_d, pid_linear.u_);
         RCLCPP_INFO(get_logger(), "ang_d: %f, u: %f", ang_vel_d, pid_angular.u_);
@@ -249,7 +260,7 @@ private:
         // RCLCPP_INFO(get_logger(), "From %f, %f to %f, %f", this->pose.x, this->pose.y, wp_list[wp_i].x, wp_list[wp_i].y);
 
         this->cmd_vel_msg.linear.x = std::clamp(lin_vel_d, -0.1, 0.1);
-        this->cmd_vel_msg.angular.z = std::clamp(ang_vel_d, -0.2, 0.2);
+        this->cmd_vel_msg.angular.z = std::clamp(ang_vel_d, -1.0, 1.0);
         cmd_vel_pub_->publish(this->cmd_vel_msg);
 
         last_lin_vel_d = lin_vel_d;

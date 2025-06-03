@@ -4,3 +4,6 @@
 [submodule "pzb_ws/pzb_control/libs/fatrop"]
 	path = pzb_ws/pzb_control/libs/fatrop
 	url = https://github.com/meco-group/fatrop.git
+[submodule "pzb_ws/pzb_control/libs/a-star"]
+	path = pzb_ws/pzb_control/libs/a-star
+	url = https://github.com/daancode/a-star.git

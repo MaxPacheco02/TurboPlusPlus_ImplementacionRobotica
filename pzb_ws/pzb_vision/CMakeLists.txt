@@ -82,7 +82,7 @@ install(DIRECTORY
 )
 
 install(PROGRAMS
-    scripts/trailer_angle_service.py
+    scripts/trailer_yolo_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

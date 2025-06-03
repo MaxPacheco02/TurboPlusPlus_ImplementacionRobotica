@@ -22,7 +22,7 @@ from pzb_msgs.srv import IsTrailerOnWatch
 from pzb_msgs.msg import TrailerBearing
 
 
-class TrailerAngleService(Node):
+class TrailerYoloNode(Node):
     def __init__(self):
         super().__init__('trailer_angle_service')
 
@@ -43,7 +43,7 @@ class TrailerAngleService(Node):
         self.create_subscription(CompressedImage, '/signal_frame', self.image_callback, 10)
         self.srv = self.create_service(IsTrailerOnWatch, 'trailer_on_watch', self.handle_request,
                                        callback_group=ReentrantCallbackGroup())
-        self.get_logger().info('TrailerAngleService node with service interface ready')
+        self.get_logger().info('TrailerYoloNode node with service interface ready')
         # Initialize the bearing angles message with NaN values
         self.bearing_angles_ = TrailerBearing(
             diagonal=float('nan'),
@@ -100,7 +100,7 @@ class TrailerAngleService(Node):
         
 def main(args=None):
     rclpy.init(args=args)
-    node = TrailerAngleService()
+    node = TrailerYoloNode()
     executor = MultiThreadedExecutor()
     executor.add_node(node)
     try:

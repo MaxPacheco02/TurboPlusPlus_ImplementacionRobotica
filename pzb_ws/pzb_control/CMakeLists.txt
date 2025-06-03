@@ -22,7 +22,8 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(Boost 1.45.0 COMPONENTS filesystem)
 
-add_subdirectory(libs/fatrop)
+# add_subdirectory(libs/fatrop)
+add_subdirectory(libs/a-star)
 
 install(DIRECTORY
   launch
@@ -51,19 +52,26 @@ ament_target_dependencies(state_estimate ${DEPENDENCIES})
 add_executable(pid_pose_node src/pid_pose_node.cpp)
 ament_target_dependencies(pid_pose_node ${DEPENDENCIES})
 
-# add_executable(master_node src/master_node.cpp)
-# ament_target_dependencies(master_node ${DEPENDENCIES})
+# add_executable(mpc_node src/mpc_node.cpp)
+# target_include_directories(mpc_node PRIVATE deps/fatrop/fatrop ${Boost_INCLUDE_DIRS} )
+# target_link_libraries(mpc_node fatrop ${Boost_LIBRARIES}) 
+# ament_target_dependencies(mpc_node ${DEPENDENCIES})
 
-add_executable(mpc_node src/mpc_node.cpp)
-target_include_directories(mpc_node PRIVATE deps/fatrop/fatrop ${Boost_INCLUDE_DIRS} )
-target_link_libraries(mpc_node fatrop ${Boost_LIBRARIES}) 
-ament_target_dependencies(mpc_node ${DEPENDENCIES})
+add_executable(a_star_node src/a_star_node.cpp)
+target_link_libraries(a_star_node a-star) 
+target_include_directories(a_star_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include> libs/a-star/source)
+ament_target_dependencies(a_star_node ${DEPENDENCIES})
 
 add_executable(line_follower_path_publisher_node src/line_follower_path_publisher_node.cpp)
 ament_target_dependencies(line_follower_path_publisher_node ${DEPENDENCIES})
 
 add_executable(obstacle_publisher src/obstacle_publisher.cpp)
 ament_target_dependencies(obstacle_publisher ${DEPENDENCIES})
+
+add_executable(path_interpolation_node src/path_interpolation_node.cpp)
+ament_target_dependencies(path_interpolation_node ${DEPENDENCIES})
 
 # Install Python executables
 install(PROGRAMS
@@ -76,9 +84,10 @@ DESTINATION lib/${PROJECT_NAME}
 install(TARGETS
   state_estimate
   pid_pose_node
-  mpc_node
-  # master_node
+  # mpc_node
+  a_star_node
   obstacle_publisher
+  path_interpolation_node
   line_follower_path_publisher_node
   DESTINATION lib/${PROJECT_NAME})
 

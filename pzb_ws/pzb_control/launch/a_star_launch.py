@@ -14,39 +14,26 @@ from launch.substitutions import Command, LaunchConfiguration
 
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
-    
+
+
 def generate_launch_description():
     ns_arg = DeclareLaunchArgument('ns_', default_value='')
-    
-    pzb_config = os.path.join(
-        get_package_share_directory('pzb_control'),
-        'config',
-        'conf.yaml'
-    )
 
-    state_node = Node(
+    a_star_node = Node(
         package='pzb_control',
-        executable='state_estimate',
-        parameters=[pzb_config],
+        executable='a_star_node',
         namespace=LaunchConfiguration('ns_'),
+    )
 
-        # Comment remappings for closed loop (REAL LIFE)
-        # Include remappings for open loop (SIMULATIONS AND TESTING)
-        remappings=[
-            ('VelocityEncL', 'VelocitySetL'),
-            ('VelocityEncR', 'VelocitySetR'),
-        ],
-    )
-    
-    dead_reckoning = Node(
-        package='pzb_localization',
-        executable='dead_reckoning',
+    path_interpolation_node = Node(
+        package='pzb_control',
+        executable='path_interpolation_node',
         namespace=LaunchConfiguration('ns_'),
     )
-    
+
     return LaunchDescription([
         ns_arg,
 
-        state_node,
-        dead_reckoning,
+        a_star_node,
+        path_interpolation_node,
     ])

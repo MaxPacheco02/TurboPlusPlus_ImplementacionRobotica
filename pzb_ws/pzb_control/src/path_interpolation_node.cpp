@@ -40,10 +40,10 @@ public:
         this->declare_parameter("min_segment_length", 0.01);     // minimum segment length to interpolate
 
         // Declare parameters for lookahead
-        this->declare_parameter("lookahead_distance", 0.1);     // lookahead distance in meters
-        this->declare_parameter("min_lookahead_distance", 0.2); // minimum lookahead distance
+        this->declare_parameter("lookahead_distance", 0.7);     // lookahead distance in meters
+        this->declare_parameter("min_lookahead_distance", 0.7); // minimum lookahead distance
         this->declare_parameter("max_lookahead_distance", 1.0); // maximum lookahead distance
-        this->declare_parameter("goal_tolerance", 0.2);         // distance to consider goal reached
+        this->declare_parameter("goal_tolerance", 0.25);         // distance to consider goal reached
     }
 
 private:

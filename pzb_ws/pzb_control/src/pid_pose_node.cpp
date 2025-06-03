@@ -249,6 +249,9 @@ private:
             ang_vel_d = 0;
         }
 
+        double mult_lin = std::clamp(-2 * ang_vel_d + 1 , 0.0, 1.0);
+        lin_vel_d*=mult_lin;
+
         // lin_vel_d = last_lin_vel_d + std::clamp(lin_vel_d - last_lin_vel_d, -0.01, 0.01);
         // ang_vel_d = last_ang_vel_d + std::clamp(ang_vel_d - last_ang_vel_d, -0.01, 0.01);
 
@@ -260,7 +263,7 @@ private:
         // RCLCPP_INFO(get_logger(), "From %f, %f to %f, %f", this->pose.x, this->pose.y, wp_list[wp_i].x, wp_list[wp_i].y);
 
         this->cmd_vel_msg.linear.x = std::clamp(lin_vel_d, -0.1, 0.1);
-        this->cmd_vel_msg.angular.z = std::clamp(ang_vel_d, -1.0, 1.0);
+        this->cmd_vel_msg.angular.z = std::clamp(ang_vel_d, -0.7, 0.7);
         cmd_vel_pub_->publish(this->cmd_vel_msg);
 
         last_lin_vel_d = lin_vel_d;

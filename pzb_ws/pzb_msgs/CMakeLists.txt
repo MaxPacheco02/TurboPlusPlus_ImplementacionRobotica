@@ -21,6 +21,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 
   "srv/IsTrailerOnWatch.srv"
   "srv/TrailerAlign.srv"
+  "srv/SetLift.srv"
 
   DEPENDENCIES std_msgs geometry_msgs geometry_msgs)
 

@@ -32,6 +32,7 @@
 
 #include "pzb_msgs/msg/trailer_bearing.hpp"
 #include "pzb_msgs/srv/trailer_align.hpp"
+#include "pzb_msgs/srv/approach.hpp"
 
 using namespace std::chrono_literals;
 
@@ -60,7 +61,7 @@ public:
             });
 
         odometry_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-            "/pzb/odom", 10,
+            "/odom", 10,
             [this](const nav_msgs::msg::Odometry &msg)
             {
                 pose_ << msg.pose.pose.position.x,
@@ -90,7 +91,7 @@ public:
             [this](const geometry_msgs::msg::PoseStamped &msg)
             {
                 last_pallet_update_ = this->get_clock()->now();
-                pallet_v = forward(pose2vec(msg.pose), -axis2cam);
+                pallet_v = pose2vec(msg.pose);
             });
 
         trailer_service_ = this->create_service<pzb_msgs::srv::TrailerAlign>(
@@ -99,9 +100,13 @@ public:
 
         pallet_service_ = this->create_service<std_srvs::srv::Empty>(
             "pallet_align_srv", std::bind(
-                                     &AlignmentNode::align_pallet, this, _1, _2));
+                                    &AlignmentNode::align_pallet, this, _1, _2));
 
-        pid_ref_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/pzb/goal_pose", 10);
+        approach_service_ = this->create_service<pzb_msgs::srv::Approach>(
+            "approach_srv", std::bind(
+                                &AlignmentNode::approach, this, _1, _2));
+
+        pid_ref_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/goal_pose", 10);
         marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("/marker_array", 10);
 
         // update_timer_ = this->create_wall_timer(100ms, std::bind(&AlignmentNode::update, this));
@@ -125,6 +130,7 @@ private:
 
     rclcpp::Service<pzb_msgs::srv::TrailerAlign>::SharedPtr trailer_service_;
     rclcpp::Service<std_srvs::srv::Empty>::SharedPtr pallet_service_;
+    rclcpp::Service<pzb_msgs::srv::Approach>::SharedPtr approach_service_;
 
     visualization_msgs::msg::MarkerArray marker_arr;
     rclcpp::TimerBase::SharedPtr update_timer_;
@@ -180,7 +186,7 @@ private:
         if (this->get_clock()->now() - last_yolo_update_ > rclcpp::Duration(0, 100 * 1e6))
             return;
 
-        // calc_trailer_ref(cam_bearing_angles[request];
+        calc_trailer_ref(cam_bearing_angles[request->trailer_type]);
         pid_ref_pub_->publish(pid_ref_msg);
     }
 
@@ -193,6 +199,14 @@ private:
             return;
 
         calc_pallet_ref();
+        pid_ref_pub_->publish(pid_ref_msg);
+    }
+
+    // Pallet aligning service call.
+    void approach(const std::shared_ptr<pzb_msgs::srv::Approach::Request> request,
+                      std::shared_ptr<pzb_msgs::srv::Approach::Response> response)
+    {
+        set_pid_ref(forward(pose_, request->distance));
         pid_ref_pub_->publish(pid_ref_msg);
     }
 
@@ -242,7 +256,7 @@ private:
 
     void calc_pallet_ref()
     {
-        set_pid_ref(forward(pallet_v, -offset));
+        set_pid_ref(pose_ + rotM_ * forward(pallet_v, -offset));
     }
 
     void calc_trailer_ref(double cam_bearing_angle)

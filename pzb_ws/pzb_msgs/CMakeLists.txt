@@ -13,6 +13,7 @@ find_package(rosidl_default_generators REQUIRED)
 
 # Generar interfaces
 rosidl_generate_interfaces(${PROJECT_NAME}
+
   "msg/Signal.msg"
   "msg/TrailerBearing.msg"
   "msg/ArucoMarker.msg"
@@ -22,6 +23,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/IsTrailerOnWatch.srv"
   "srv/TrailerAlign.srv"
   "srv/SetLift.srv"
+  "srv/LiftService.srv"
+  "srv/MovementRequestService.srv"
+  "srv/Approach.srv"
 
   DEPENDENCIES std_msgs geometry_msgs geometry_msgs)
 

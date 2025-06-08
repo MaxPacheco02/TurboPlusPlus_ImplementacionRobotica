@@ -1,0 +1,14 @@
+# Type of Movement. It could be:
+# "align", "nav", "approach"
+string type
+
+# If the type is nav or approach, a reference pose is needed.
+geometry_msgs/PoseStamped ref_pose
+
+# If the type is align, define if it should align to a trailer or a pallet
+bool is_alignment_to_trailer
+
+string trailer_choice
+
+float64 approach_distance
+---

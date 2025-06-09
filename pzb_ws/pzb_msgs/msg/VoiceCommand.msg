@@ -8,5 +8,6 @@ int8 RIGHT = 6
 int8 ROTATE = 7 
 int8 STOP = 8 
 int8 UP = 9 
+int8 UNKNOWN = -1
 
 int8 command 

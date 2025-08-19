@@ -64,6 +64,9 @@ target_include_directories(a_star_node PUBLIC
   $<INSTALL_INTERFACE:include> libs/a-star/source)
 ament_target_dependencies(a_star_node ${DEPENDENCIES})
 
+add_executable(master_node src/master_node.cpp)
+ament_target_dependencies(master_node ${DEPENDENCIES})
+
 add_executable(line_follower_path_publisher_node src/line_follower_path_publisher_node.cpp)
 ament_target_dependencies(line_follower_path_publisher_node ${DEPENDENCIES})
 
@@ -77,13 +80,14 @@ ament_target_dependencies(path_interpolation_node ${DEPENDENCIES})
 install(PROGRAMS
 scripts/path_publisher_node.py
 scripts/pzb_teleop_node.py
-scripts/pzb_teleop_low_level_node.py
+scripts/pzb_teleop_node_sixth_sem.py
 DESTINATION lib/${PROJECT_NAME}
 )
 
 install(TARGETS
   state_estimate
   pid_pose_node
+  master_node
   # mpc_node
   a_star_node
   obstacle_publisher

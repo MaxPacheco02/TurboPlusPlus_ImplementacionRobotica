@@ -18,6 +18,8 @@
 #include "std_msgs/msg/header.hpp"
 #include "std_msgs/msg/float32.hpp"
 #include "std_msgs/msg/float64.hpp"
+#include "std_msgs/msg/bool.hpp"
+
 #include "visualization_msgs/msg/marker.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 #include "nav_msgs/msg/path.hpp"
@@ -26,6 +28,7 @@
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include "tf2_ros/transform_listener.h"
+
 #include "tf2_ros/buffer.h"
 #include "tf2/utils.hpp"
 #include "std_srvs/srv/empty.hpp"
@@ -80,18 +83,26 @@ public:
             [this](const pzb_msgs::msg::TrailerBearing &msg)
             {
                 last_yolo_update_ = this->get_clock()->now();
-                cam_bearing_angles["diagonal"] = msg.diagonal;
-                cam_bearing_angles["oxidado"] = msg.oxidado;
-                cam_bearing_angles["rojo"] = msg.diagonal;
+                cam_bearing_angles["diagonal1"] = msg.diagonal1;
+                cam_bearing_angles["oxidado1"] = msg.oxidado1;
+                cam_bearing_angles["rojo1"] = msg.rojo1;
+                cam_bearing_angles["diagonal2"] = msg.diagonal2;
+                cam_bearing_angles["oxidado2"] = msg.oxidado2;
+                cam_bearing_angles["rojo2"] = msg.rojo2;
             });
 
         // Get a pallet's relative pose from the camera
         pallet_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-            "/pallet_pose", 10,
+            "/pallet/goal_pose", 10,
             [this](const geometry_msgs::msg::PoseStamped &msg)
             {
                 last_pallet_update_ = this->get_clock()->now();
                 pallet_v = pose2vec(msg.pose);
+                // if(is_latest_pallet){
+
+                calc_pallet_ref();
+                pid_ref_pub_->publish(pid_ref_msg);
+                // }
             });
 
         trailer_service_ = this->create_service<pzb_msgs::srv::TrailerAlign>(
@@ -108,10 +119,12 @@ public:
 
         pid_ref_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/goal_pose", 10);
         marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("/marker_array", 10);
+        is_approach_pub_ = this->create_publisher<std_msgs::msg::Bool>("/is_approach", 10);
 
-        // update_timer_ = this->create_wall_timer(100ms, std::bind(&AlignmentNode::update, this));
+        update_timer_ = this->create_wall_timer(100ms, std::bind(&AlignmentNode::update, this));
         pid_ref_msg.header.frame_id = "odom";
 
+        is_approach_msg.data = false;
         axis2cam_v << axis2cam, 0;
 
         last_yolo_update_ = this->get_clock()->now();
@@ -127,6 +140,7 @@ private:
 
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pid_ref_pub_;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr is_approach_pub_;
 
     rclcpp::Service<pzb_msgs::srv::TrailerAlign>::SharedPtr trailer_service_;
     rclcpp::Service<std_srvs::srv::Empty>::SharedPtr pallet_service_;
@@ -135,6 +149,7 @@ private:
     visualization_msgs::msg::MarkerArray marker_arr;
     rclcpp::TimerBase::SharedPtr update_timer_;
     tf2::Quaternion quat;
+    std_msgs::msg::Bool is_approach_msg;
     geometry_msgs::msg::PoseStamped pid_ref_msg;
 
     rclcpp::Time last_yolo_update_;
@@ -144,12 +159,16 @@ private:
     std::vector<float> laserscan_vector;
     double angle_min, angle_max, angle_increment;
     int nearest_index{-1};
-    double offset = 0.2;
+    double offset{0.35};
+    double y_offset{0.03};
 
     std::map<std::string, double> cam_bearing_angles = {
-        {"diagonal", NAN},
-        {"oxidado", NAN},
-        {"rojo", NAN},
+        {"diagonal1", NAN},
+        {"oxidado1", NAN},
+        {"rojo1", NAN},
+        {"diagonal2", NAN},
+        {"oxidado2", NAN},
+        {"rojo2", NAN},
     };
 
     double axis2cam{0.056};
@@ -162,9 +181,13 @@ private:
     Eigen::Matrix3f rotM_;
 
     double received_goal{false};
+    bool is_latest_pallet{false};
     int bug_algorithm{2};
 
+    std::string desired_trailer{"oxidado"};
     int skip_rays{1};
+
+    double cam_bearing_angle1_{0}, cam_bearing_angle2_{0};
 
     int color_list[6][4]{
         {1, 0, 0, 1},
@@ -178,15 +201,27 @@ private:
         {"marker", MarkerProps{3, 0.02, 0.02, 0.02, 0.25}},
     };
 
+    void update()
+    {
+        cam_bearing_angle1_ = cam_bearing_angles[desired_trailer + "1"];
+        cam_bearing_angle2_ = cam_bearing_angles[desired_trailer + "2"];
+        calc_trailer_ref(cam_bearing_angle1_, cam_bearing_angle2_);
+        is_approach_pub_->publish(is_approach_msg);
+    }
+
     // Trailer aligning service call. Assumes the trailer is being detected.
     void align_trailer(const std::shared_ptr<pzb_msgs::srv::TrailerAlign::Request> request,
                        std::shared_ptr<pzb_msgs::srv::TrailerAlign::Response> response)
     {
+        is_approach_msg.data = false;
+        is_latest_pallet = false;
+
         // Ignore if a yolo detection hasn't been recently found (100 ms)
         if (this->get_clock()->now() - last_yolo_update_ > rclcpp::Duration(0, 100 * 1e6))
             return;
 
-        calc_trailer_ref(cam_bearing_angles[request->trailer_type]);
+        desired_trailer = request->trailer_type;
+        calc_trailer_ref(cam_bearing_angles[desired_trailer + "1"], cam_bearing_angles[desired_trailer + "2"]);
         pid_ref_pub_->publish(pid_ref_msg);
     }
 
@@ -194,6 +229,10 @@ private:
     void align_pallet(const std::shared_ptr<std_srvs::srv::Empty::Request> request,
                       std::shared_ptr<std_srvs::srv::Empty::Response> response)
     {
+        is_approach_msg.data = false;
+        is_latest_pallet = true;
+
+
         // Ignore if a pallet detection hasn't been recently found (100 ms)
         if (this->get_clock()->now() - last_pallet_update_ > rclcpp::Duration(0, 100 * 1e6))
             return;
@@ -204,8 +243,11 @@ private:
 
     // Pallet aligning service call.
     void approach(const std::shared_ptr<pzb_msgs::srv::Approach::Request> request,
-                      std::shared_ptr<pzb_msgs::srv::Approach::Response> response)
+                  std::shared_ptr<pzb_msgs::srv::Approach::Response> response)
     {
+        is_approach_msg.data = true;
+        is_latest_pallet = false;
+
         set_pid_ref(forward(pose_, request->distance));
         pid_ref_pub_->publish(pid_ref_msg);
     }
@@ -256,58 +298,51 @@ private:
 
     void calc_pallet_ref()
     {
-        set_pid_ref(pose_ + rotM_ * forward(pallet_v, -offset));
+        // set_pid_ref(pose_ + rotM_ * forward(pallet_v, -offset));
+        double adder = 0;
+        if(pallet_v(0) > 1.0){
+            adder = 0.15;
+        }
+        double off = offset + adder;
+        set_pid_ref(pose_ + rotM_ * diagonal(pallet_v, -off, -y_offset));
     }
 
-    void calc_trailer_ref(double cam_bearing_angle)
+    void calc_trailer_ref(double cam_bearing_angle1, double cam_bearing_angle2)
     {
         if (laserscan_vector.size() == 0)
             return;
 
         marker_arr.markers.clear();
 
-        int inc = -sign(cam_bearing_angle);
-        Eigen::Vector2f bearing_v;
-        bearing_v << 1.0, tan(cam_bearing_angle);
-        bearing_v = bearing_v * 5 + axis2cam_v;
-        add_linestrip(bearing_v, 3);
+        Eigen::Vector2f bearing_v1, bearing_v2;
+        bearing_v1 << 1.0, tan(cam_bearing_angle1);
+        bearing_v1 = bearing_v1 * 5 + axis2cam_v;
+        add_linestrip(bearing_v1, 3);
+        bearing_v2 << 1.0, tan(cam_bearing_angle2);
+        bearing_v2 = bearing_v2 * 5 + axis2cam_v;
+        add_linestrip(bearing_v2, 3);
 
-        /*
-            Find the laserscan's index that best intersects with the bounding box's center
-            ang = min + idx * increment
-        */
-        int idx = (cam_bearing_angle - angle_min) / angle_increment; // Start with the idx looking at the camera's angle.
+        int idx1 = (cam_bearing_angle1 - angle_min) / angle_increment;
+        int idx2 = (cam_bearing_angle2 - angle_min) / angle_increment;
 
-        // Find the laserscan's relative bearing angle. Commented because not doing this worked better. TODO: Debug why.
-        // double min_ce = calculate_crosstrack_error(get_point(idx), axis2cam_v, bearing_v);
+        double average_ang = (cam_bearing_angle1 + cam_bearing_angle2) / 2;
+        int idx3 = (average_ang - angle_min) / angle_increment;
+        Eigen::Vector2f p0 = get_point(idx3);
+        int adder = get_sep_from_dist(p0(0));
 
-        // // The real index always has a lower abs angle than the camera's angle because its further.
-        // int tmp_idx = idx;
-        // bool is_decreasing{true};
-        // while (is_decreasing)
-        // {
-        //     tmp_idx += inc;
-        //     double tmp_ce = calculate_crosstrack_error(get_point(tmp_idx), axis2cam_v, bearing_v);
-        //     if (tmp_ce < min_ce)
-        //     {
-        //         min_ce = tmp_ce;
-        //         idx = tmp_idx;
-        //     }
-        //     else
-        //     {
-        //         is_decreasing = false;
-        //     }
-        // }
+        Eigen::Vector2f p4 = get_point(idx1);
+        Eigen::Vector2f p3 = get_point(idx2);
+        add_marker(p4, 1);
+        add_marker(p3, 1);
 
-        if (idx < 0)
-        {
-            RCLCPP_ERROR(this->get_logger(), "Not suitable idx.");
-            return;
-        }
+        Eigen::Vector2f p2 = get_point(idx1 + adder);
+        Eigen::Vector2f p1 = get_point(idx2 - adder);
 
-        Eigen::Vector2f midpoint = get_point(idx);
-        Eigen::Vector2f p1 = get_point(idx - get_sep_from_dist(laserscan_vector[idx]));
-        Eigen::Vector2f p2 = get_point(idx + get_sep_from_dist(laserscan_vector[idx]));
+        Eigen::Vector2f midpoint = (p1 + p2) / 2;
+
+        // Eigen::Vector2f midpoint = get_point(idx);
+        // Eigen::Vector2f p1 = get_point(idx - get_sep_from_dist(laserscan_vector[idx]));
+        // Eigen::Vector2f p2 = get_point(idx + get_sep_from_dist(laserscan_vector[idx]));
 
         // Calculate tangent and normal
         Eigen::Vector2f tangent = (p2 - p1).normalized();
@@ -327,7 +362,7 @@ private:
         add_marker(p1, 2);
         add_marker(p2, 2);
         add_marker(midpoint, 1);
-        add_marker(offset_point, 2);
+        add_marker(offset_point, 3);
 
         marker_pub_->publish(marker_arr);
     }
@@ -335,7 +370,17 @@ private:
     int get_sep_from_dist(double d)
     {
         double sep = -20.0 * d + 22.0;
-        return static_cast<int>(std::clamp(sep, 2.0, 18.0));
+        return static_cast<int>(std::clamp(sep, 0.0, 3.0));
+    }
+
+    bool is_p_in_plane(const Eigen::Vector2f &p,
+                       const Eigen::Vector2f &a,
+                       const Eigen::Vector2f &b)
+    {
+        RCLCPP_ERROR(this->get_logger(), "CE: %f", std::fabs(calculate_crosstrack_error(p, a, b)));
+        if (std::fabs(calculate_crosstrack_error(p, a, b)) > 0.01)
+            return false;
+        return true;
     }
 
     double calculate_crosstrack_error(const Eigen::Vector2f &p,
@@ -463,6 +508,17 @@ private:
         Eigen::Vector3f p;
         p << std::cos(base(2)), std::sin(base(2)), 0.0;
         return base + distance * p;
+    }
+
+    Eigen::Vector3f diagonal(const Eigen::Vector3f &base, double x_trans, double y_trans)
+    {
+        Eigen::Matrix3f rot_matrix;
+        rot_matrix << std::cos(base(2)), -std::sin(base(2)), 0,
+            std::sin(base(2)), std::cos(base(2)), 0,
+            0, 0, 1;
+        Eigen::Vector3f p;
+        p << x_trans, y_trans, 0.0;
+        return base + rot_matrix * p;
     }
 
     void set_pid_ref(Eigen::Vector3f v)

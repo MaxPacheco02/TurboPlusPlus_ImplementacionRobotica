@@ -21,6 +21,8 @@
 #include "std_msgs/msg/color_rgba.hpp"
 #include "std_msgs/msg/header.hpp"
 #include "std_msgs/msg/float32.hpp"
+#include "std_msgs/msg/float64.hpp"
+#include "std_msgs/msg/bool.hpp"
 
 #include "pzb_msgs/msg/signal.hpp"
 
@@ -77,6 +79,13 @@ public:
                 received_goal = true;
             });
 
+        is_approach_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+            "is_approach", 10,
+            [this](const std_msgs::msg::Bool &msg)
+            {
+                is_approach = msg.data;
+            });
+
         // path_sub_ = this->create_subscription<nav_msgs::msg::Path>(
         //     "pzb/path_to_follow", 10,
         //     [this](const nav_msgs::msg::Path &msg) {
@@ -87,7 +96,9 @@ public:
         //         wp_list = get_wp_list(msg);
         //     });
 
-        cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+        cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel_pid", 10);
+
+        abs_e_pub_ = this->create_publisher<std_msgs::msg::Float64>("/pid_abs_err", 10);
 
         updateTimer =
             this->create_wall_timer(10ms, std::bind(&PIDGuidance::update, this));
@@ -101,9 +112,11 @@ public:
 private:
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pose_sub_;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr is_approach_sub_;
     rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_sub_;
 
     rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr w1_des_pub_, w2_des_pub_;
+    rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr abs_e_pub_;
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
 
     rclcpp::Service<std_srvs::srv::Empty>::SharedPtr start_srv, stop_srv;
@@ -115,8 +128,11 @@ private:
     geometry_msgs::msg::Pose pose, goal_pose;
     geometry_msgs::msg::Twist cmd_vel_msg;
 
+    std_msgs::msg::Float64 abs_e_msg;
+
     PID pid_linear, pid_angular;
 
+    bool is_approach{false};
     double motors_enabled{1.};
 
     bool received_goal{false};
@@ -174,63 +190,53 @@ private:
         const geometry_msgs::msg::Pose &reference_pose,
         const geometry_msgs::msg::Pose &current_pose)
     {
-        // Get the positions
-        double ref_x = reference_pose.position.x;
-        double ref_y = reference_pose.position.y;
-        double current_x = current_pose.position.x;
-        double current_y = current_pose.position.y;
-
         // Calculate translation difference in global frame
-        double dx = current_x - ref_x;
-        double dy = current_y - ref_y;
-
+        double dx = current_pose.position.x - reference_pose.position.x;
+        double dy = current_pose.position.y - reference_pose.position.y;
+    
         // Get reference orientation as yaw angle
         double ref_yaw = tf2::getYaw(reference_pose.orientation);
         double current_yaw = tf2::getYaw(current_pose.orientation);
-
+    
         // Calculate angular error and normalize to [-π, π]
         double angular_error = normalize_angle(current_yaw - ref_yaw);
-        if (std::fabs(angular_error) < 0.05)
-        {
-            angular_error = 0;
-        }
-
-        // Transform the translation difference to the reference pose's frame
-        double cos_yaw = std::cos(ref_yaw);
-        double sin_yaw = std::sin(ref_yaw);
-
-        // Rotate the global difference by -ref_yaw to get it in reference frame
-        double forward_error = dx * cos_yaw + dy * sin_yaw;  // Forward (x) in reference frame
-        double lateral_error = -dx * sin_yaw + dy * cos_yaw; // Lateral (y) in reference frame
-
-        if (std::fabs(forward_error) < 0.05)
-        {
-            forward_error = 0;
-        }
-
-        // if(std::fabs(lateral_error) < 0.005){
-        //     lateral_error = 0;
-        // }
-
+    
+        // Transform the global translation difference to the reference frame
+        // This rotates the global difference vector by -ref_yaw
+        double cos_ref = std::cos(ref_yaw);
+        double sin_ref = std::sin(ref_yaw);
+        
+        double forward_error = dx * cos_ref + dy * sin_ref;   // Longitudinal (x in reference frame)
+        double lateral_error = -dx * sin_ref + dy * cos_ref;  // Lateral (y in reference frame)
+    
+        // Apply thresholds if needed
+        // if (std::fabs(angular_error) < 0.05) angular_error = 0;
+        // if (std::fabs(forward_error) < 0.05) forward_error = 0;
+        // if (std::fabs(lateral_error) < 0.05) lateral_error = 0;
+    
         return Error{forward_error, lateral_error, angular_error};
     }
-
+    
     void update()
     {
-        if(!received_goal)
+        if (!received_goal)
             return;
-        
+
         Error e = calculatePoseError(pose, goal_pose);
 
         psi_d = std::atan2((goal_pose.position.y - pose.position.y),
                            (goal_pose.position.x - pose.position.x));
 
         double trans_e = std::sqrt(e.x * e.x + e.y * e.y);
+        abs_e_msg.data = trans_e;
 
         // If it's not there, go. Else, fix orientation
-        if (trans_e > 0.05)
+        if (trans_e > 0.02)
             psi_e = get_angle_diff(psi_d, tf2::getYaw(pose.orientation));
         else
+            psi_e = e.z;
+
+        if(is_approach)
             psi_e = e.z;
 
         // pid_linear.saturateManipulation(trans_e);
@@ -241,16 +247,17 @@ private:
         lin_vel_d = -pid_linear.u_;
         ang_vel_d = -pid_angular.u_;
 
-        // if(std::fabs(lin_vel_d) < 0.01){
-        //     lin_vel_d = 0;
-        // }
+        if(std::fabs(lin_vel_d) < 0.01){
+            lin_vel_d = 0;
+        }
 
-        if(std::fabs(ang_vel_d) < 0.01){
+        if (std::fabs(ang_vel_d) < 0.005)
+        {
             ang_vel_d = 0;
         }
 
-        double mult_lin = std::clamp(-2 * ang_vel_d + 1 , 0.0, 1.0);
-        lin_vel_d*=mult_lin;
+        double mult_lin = std::clamp(-2 * ang_vel_d + 1, 0.0, 1.0);
+        lin_vel_d *= mult_lin;
 
         // lin_vel_d = last_lin_vel_d + std::clamp(lin_vel_d - last_lin_vel_d, -0.01, 0.01);
         // ang_vel_d = last_ang_vel_d + std::clamp(ang_vel_d - last_ang_vel_d, -0.01, 0.01);
@@ -263,8 +270,10 @@ private:
         // RCLCPP_INFO(get_logger(), "From %f, %f to %f, %f", this->pose.x, this->pose.y, wp_list[wp_i].x, wp_list[wp_i].y);
 
         this->cmd_vel_msg.linear.x = std::clamp(lin_vel_d, -0.1, 0.1);
-        this->cmd_vel_msg.angular.z = std::clamp(ang_vel_d, -0.7, 0.7);
+        this->cmd_vel_msg.angular.z = std::clamp(ang_vel_d, -0.4, 0.4);
         cmd_vel_pub_->publish(this->cmd_vel_msg);
+
+        abs_e_pub_->publish(abs_e_msg);
 
         last_lin_vel_d = lin_vel_d;
         last_ang_vel_d = ang_vel_d;

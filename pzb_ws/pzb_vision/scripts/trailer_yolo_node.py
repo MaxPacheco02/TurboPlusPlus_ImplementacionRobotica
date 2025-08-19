@@ -46,24 +46,33 @@ class TrailerYoloNode(Node):
         self.get_logger().info('TrailerYoloNode node with service interface ready')
         # Initialize the bearing angles message with NaN values
         self.bearing_angles_ = TrailerBearing(
-            diagonal=float('nan'),
-            oxidado=float('nan'),
-            rojo=float('nan')
+            diagonal1=float('nan'),
+            oxidado1=float('nan'),
+            rojo1=float('nan'),
+            diagonal2=float('nan'),
+            oxidado2=float('nan'),
+            rojo2=float('nan')
         )
 
         self.latest_detections = {
-            "diagonal": None,
-            "oxidado": None,
-            "rojo": None
+            "diagonal1": None,
+            "oxidado1": None,
+            "rojo1": None,
+            "diagonal2": None,
+            "oxidado2": None,
+            "rojo2": None
         }
     
-    def update_bearing_msg(self, name, bearing):
+    def update_bearing_msg(self, name, bearing1, bearing2):
         if name == "diagonal":
-            self.bearing_angles_.diagonal = bearing
+            self.bearing_angles_.diagonal1 = bearing1
+            self.bearing_angles_.diagonal2 = bearing2
         elif name == "oxidado":
-            self.bearing_angles_.oxidado = bearing
+            self.bearing_angles_.oxidado1 = bearing1
+            self.bearing_angles_.oxidado2 = bearing2
         elif name == "rojo":
-            self.bearing_angles_.rojo = bearing
+            self.bearing_angles_.rojo1 = bearing1
+            self.bearing_angles_.rojo2 = bearing2
 
     def image_callback(self, msg):
         img = self.bridge.compressed_imgmsg_to_cv2(msg)
@@ -78,22 +87,22 @@ class TrailerYoloNode(Node):
                 if conf > 0.65:
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
                     center_x = (x1 + x2) // 2
-                    self.update_bearing_msg(self.latest_image, -math.atan((center_x - self.cx) / self.fx))
+                    self.update_bearing_msg(self.latest_image, -math.atan((x1 - self.cx) / self.fx), -math.atan((x2 - self.cx) / self.fx))
                     self.latest_detections[self.latest_image] = self.get_clock().now()
             
         
         current_time = self.get_clock().now()
         for name, detection_time in list(self.latest_detections.items()):
             if detection_time is not None and (current_time - detection_time).nanoseconds / 1e9 > 0.5:
-                self.update_bearing_msg(name, float('nan'))
-                self.latest_detections[name] = None
-
+                self.update_bearing_msg(name, float('nan'), float('nan'))
+                self.latest_detections[name + "1"] = None
+                self.latest_detections[name + "2"] = None
                 
         self.bearing_angles_pub_.publish(self.bearing_angles_)
 
     def handle_request(self, request, response):
         response.is_on_watch = True
-        if self.latest_detections[request.trailer_type] is None:
+        if self.latest_detections[request.trailer_type + "1"] is None:
             response.is_on_watch = False
 
         return response

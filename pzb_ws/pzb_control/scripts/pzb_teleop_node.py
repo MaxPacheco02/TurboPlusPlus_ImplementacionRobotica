@@ -4,6 +4,7 @@ import sys
 import threading
 
 import geometry_msgs.msg
+import std_msgs.msg
 import nav_msgs.msg
 import rclpy
 
@@ -25,21 +26,30 @@ q/z : auto/teleop op. mode
 CTRL-C to quit
 """
 
+# Fast
+x_vel = 0.11
+z_vel = 0.5
+
+# Slamming
+# x_vel = 0.02
+# z_vel = 0.05
+
 moveBindings = {
-    'i': (1., 0.),
-    'o': (1., -1.),
-    'j': (0., 1.),
-    'l': (0., -1.),
-    'u': (1., 1.),
-    ',': (-1., 0.),
-    '.': (-1., 1.),
-    'm': (-1., -1.),
+    'i': (x_vel, 0.),
+    'o': (x_vel, -z_vel),
+    'j': (0., z_vel),
+    'l': (0., -z_vel),
+    'u': (x_vel, z_vel),
+    ',': (-x_vel, 0.),
+    '.': (-x_vel, z_vel),
+    'm': (-x_vel, -z_vel),
 }
 
 opModeBindings = {
-    'a': 1.,
-    'z': 0.,
+    'a': 1,
+    'z': 0,
 }
+
 
 def getKey(settings):
     tty.setraw(sys.stdin.fileno())
@@ -48,33 +58,45 @@ def getKey(settings):
     termios.tcsetattr(sys.stdin, termios.TCSADRAIN, settings)
     return key
 
+
 def saveTerminalSettings():
     return termios.tcgetattr(sys.stdin)
+
 
 def restoreTerminalSettings(old_settings):
     termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
 
+
 def vels(op_mode):
     mode = ['tele', 'auto']
-    return 'currently:\top mode %s ' % (mode[int(op_mode)])   
+    return 'currently:\top mode %s ' % (mode[int(op_mode)])
+
 
 def main():
     settings = saveTerminalSettings()
 
     rclpy.init()
 
-    node = rclpy.create_node('pzb_teleop_node')
+    node = rclpy.create_node('pzb_teleop_low_level_node')
 
-    op_msg = geometry_msgs.msg.Vector3()
+    teleop_msg = geometry_msgs.msg.Twist()
+    op_msg = std_msgs.msg.Int8()
 
-    pub = node.create_publisher(geometry_msgs.msg.Vector3, '/op_cmd', 10)
-
+    pub = node.create_publisher(geometry_msgs.msg.Twist, '/cmd_vel_teleop', 10)
+    sel_pub = node.create_publisher(std_msgs.msg.Int8, '/cmd_vel_sel', 10)
+    
     spinner = threading.Thread(target=rclpy.spin, args=(node,))
     spinner.start()
 
     op_mode = 0.
     x = 0.
-    y = 0.
+    z = 0.
+    
+    x_filtered = 0.
+    z_filtered = 0.
+
+    # smoothing factor between 0 (more smooth) and 1 (more reactive)
+    alpha = 1.0
 
     try:
         print(msg)
@@ -84,9 +106,10 @@ def main():
             key = getKey(settings)
             if key in moveBindings.keys():
                 x = moveBindings[key][0]
-                y = moveBindings[key][1]
+                z = moveBindings[key][1]
             elif key in opModeBindings.keys():
                 op_mode = opModeBindings[key]
+                op_msg.data = op_mode
                 print(op_mode)
 
                 print(vels(op_mode))
@@ -95,27 +118,29 @@ def main():
                 status = (status + 1) % 15
             else:
                 x = 0.0
-                y = 0.0
-                op_mode = 0.
+                z = 0.0
                 if (key == '\x03'):
                     break
-            
-            op_msg.x = x
-            op_msg.y = y
-            op_msg.z = op_mode
-            pub.publish(op_msg)
+                
+            x_filtered = alpha * x + (1 - alpha) * x_filtered
+            z_filtered = alpha * z + (1 - alpha) * z_filtered
+
+            teleop_msg.linear.x = x_filtered
+            teleop_msg.angular.z = z_filtered
+            pub.publish(teleop_msg)
+            sel_pub.publish(op_msg)
 
     except Exception as e:
         print(e)
 
     finally:
-        op_msg.x = 0.
-        op_msg.y = 0.
-        op_msg.z = 0.
-        pub.publish(op_msg)
+        teleop_msg.linear.x = 0.0
+        teleop_msg.angular.z = 0.0
+        pub.publish(teleop_msg)
         rclpy.shutdown()
         spinner.join()
         restoreTerminalSettings(settings)
+
 
 if __name__ == '__main__':
     main()
